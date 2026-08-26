@@ -53,25 +53,6 @@ export default function RiskDisclaimer() {
 
         <div className="rd-divider"></div>
 
-        <p className="rd-note">
-          <strong>About third-party services:</strong> Star Traders is an independent
-          third-party platform and is not Deriv. Deriv is a separate trading service. Where
-          applicable, users may be redirected to or connected with third-party services subject
-          to those providers&apos; own terms, conditions, and risk disclosures. Star Traders is
-          not owned, operated, regulated, or endorsed by Deriv.
-        </p>
-
-        <p className="rd-note">
-          Trading involves risk, and you are solely responsible for your trading decisions and
-          their consequences. Before trading, make sure you understand the risks involved and
-          consider whether trading is appropriate for your financial circumstances. If you are
-          uncertain, seek independent professional advice. This disclaimer is not a substitute
-          for professional legal advice.
-        </p>
-
-        <p className="rd-ack">
-          By using Star Traders and its trading-related features, you acknowledge that you
-          understand and accept the risks associated with trading.
         </p>
       </div>
     </section>
