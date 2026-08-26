@@ -398,13 +398,9 @@ export default function HomePage() {
 
       <RiskDisclaimer />
 
-      <footer>
-        © 2026 Star Traders. Trading involves risk and you may lose your capital. See the{' '}
-        <a href="#risk-disclaimer" style={{ color: 'var(--teal-bright)' }}>
-          full risk disclaimer
-        </a>
-        . Not financial advice.
-      </footer>
+     <footer>
+  Trading involves risk. Please trade responsibly and only trade with funds you can afford to lose.
+</footer>
     </div>
   );
 }
