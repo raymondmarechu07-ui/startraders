@@ -3,53 +3,56 @@
 import React from "react";
 
 /*
- * STARTRADERS DASHBOARD
- *
- * IMPORTANT:
- * This file is intentionally focused on the dashboard UI.
- *
- * DO NOT remove or modify:
- * - Deriv authentication
- * - Deriv WebSocket connection
- * - AI assistant
- * - Risk Disclaimer
- * - Existing global navigation
- * - Existing balance/account connection
- *
- * The existing layout/header should continue to provide:
- * - Top navigation
- * - Account balance
- * - Risk Disclaimer button
- * - Floating AI button
- */
+===========================================================
+ STARTRADERS DASHBOARD
+===========================================================
+
+IMPORTANT:
+This page is ONLY responsible for the dashboard content.
+
+DO NOT add:
+- Account Balance statistic card
+- Today's P/L statistic card
+- Win Rate statistic card
+- Active Bots statistic card
+- "Connected to Deriv" message
+- Duplicate AI button
+- Duplicate Risk Disclaimer button
+
+The account balance, AI button, Risk Disclaimer and other
+global application elements should remain controlled by the
+existing application layout/components.
+
+===========================================================
+*/
 
 const quickActions = [
   {
     title: "Upload Bot",
     description: "Import an XML bot from your computer.",
     icon: "📁",
-    color: "orange",
+    accent: "orange",
     href: "/upload-bot",
   },
   {
     title: "Free Bots",
     description: "Browse ready-made trading strategies.",
     icon: "🤖",
-    color: "green",
+    accent: "green",
     href: "/free-bots",
   },
   {
     title: "Bot Editor",
     description: "Build a custom bot with the visual editor.",
     icon: "🧩",
-    color: "purple",
+    accent: "purple",
     href: "/bot-builder",
   },
   {
     title: "Quick Strategy",
     description: "Start fast with a pre-built strategy template.",
     icon: "⚡",
-    color: "yellow",
+    accent: "yellow",
     href: "/strategy",
   },
 ];
@@ -58,43 +61,43 @@ function QuickActionCard({ action }) {
   return (
     <a
       href={action.href}
-      className={`quick-card quick-card-${action.color}`}
+      className={`quick-action-card ${action.accent}`}
     >
-      <div className="quick-card-top">
-        <div className="quick-icon">{action.icon}</div>
+      <div className="quick-action-header">
+        <div className="quick-action-icon">
+          {action.icon}
+        </div>
 
-        <div className="quick-arrow">→</div>
+        <div className="quick-action-arrow">
+          →
+        </div>
       </div>
 
-      <div className="quick-title">{action.title}</div>
+      <h3>{action.title}</h3>
 
-      <div className="quick-description">
-        {action.description}
-      </div>
+      <p>{action.description}</p>
 
-      <div className="quick-divider" />
+      <div className="quick-action-line" />
 
-      <div className="quick-open">
-        Open <span>→</span>
-      </div>
+      <span className="quick-action-open">
+        Open →
+      </span>
     </a>
   );
 }
 
 export default function DashboardPage() {
-  /*
-   * Keep any existing Deriv/account logic that your project already has.
-   *
-   * DO NOT replace your authentication or connection code here.
-   *
-   * The dashboard layout below does not need to know the account balance
-   * because the balance is already displayed in the global navigation.
-   */
-
   return (
-    <main className="dashboard-page">
+    <>
       <style jsx global>{`
-        * {
+
+        /* =====================================================
+           BASE
+        ===================================================== */
+
+        *,
+        *::before,
+        *::after {
           box-sizing: border-box;
         }
 
@@ -108,639 +111,866 @@ export default function DashboardPage() {
 
         body {
           background: #06101f;
+          color: #ffffff;
         }
 
         a {
+          color: inherit;
           text-decoration: none;
         }
 
-        .dashboard-page {
+
+        /* =====================================================
+           DASHBOARD ROOT
+
+           FULL WIDTH.
+
+           This is the important correction from the previous
+           version. There is NO narrow phone-sized wrapper.
+        ===================================================== */
+
+        .star-dashboard {
           width: 100%;
           min-height: calc(100vh - 110px);
           background: #06101f;
-          color: #ffffff;
-          padding: 0 24px 70px;
           overflow-x: hidden;
         }
 
-        /*
-         * MAIN DASHBOARD WIDTH
-         *
-         * Unlike the previous version, this does NOT use a narrow
-         * fixed-width column. It expands naturally across the screen.
-         */
-        .dashboard-container {
-          width: min(1180px, 100%);
+
+        /* =====================================================
+           MAIN CONTENT
+
+           Wide enough for desktop and TV.
+
+           It remains centered only to keep very large screens
+           comfortable. It does NOT create the narrow squeezed
+           appearance from the previous version.
+        ===================================================== */
+
+        .star-dashboard-inner {
+          width: 100%;
+          max-width: 1480px;
           margin: 0 auto;
+          padding: 0 42px 80px;
         }
 
-        /*
-         * HERO
-         */
-        .dashboard-hero {
-          width: 100%;
-          min-height: 205px;
-          margin: 24px auto 34px;
-          border: 1px solid rgba(65, 125, 185, 0.20);
-          border-radius: 0;
+
+        /* =====================================================
+           HERO
+
+           DBT-style wide hero.
+
+           NO "Connected to Deriv" message.
+        ===================================================== */
+
+        .star-dashboard-hero {
           position: relative;
-          overflow: hidden;
+          width: 100%;
+          min-height: 250px;
+          margin: 0 0 32px;
 
           display: flex;
           align-items: center;
           justify-content: center;
 
+          overflow: hidden;
+
+          border-left: 1px solid rgba(59, 117, 174, 0.16);
+          border-right: 1px solid rgba(59, 117, 174, 0.16);
+          border-bottom: 1px solid rgba(59, 117, 174, 0.18);
+
           background:
             radial-gradient(
-              circle at 50% 40%,
-              rgba(20, 87, 153, 0.22),
-              transparent 52%
-            ),
-            linear-gradient(
-              135deg,
-              #0a2440 0%,
-              #09223d 45%,
-              #07182c 100%
+              ellipse at center,
+              rgba(19, 74, 130, 0.45) 0%,
+              rgba(10, 42, 76, 0.55) 42%,
+              rgba(6, 25, 46, 0.95) 100%
             );
         }
 
-        /*
-         * Subtle DBT-style dotted background.
-         */
-        .dashboard-hero::before {
+
+        /* Subtle dotted background like the reference */
+
+        .star-dashboard-hero::before {
           content: "";
           position: absolute;
           inset: 0;
-          opacity: 0.42;
 
-          background-image: radial-gradient(
-            rgba(75, 143, 205, 0.34) 1px,
-            transparent 1px
-          );
+          background-image:
+            radial-gradient(
+              rgba(78, 137, 193, 0.34) 1px,
+              transparent 1px
+            );
 
           background-size: 24px 24px;
+
+          opacity: 0.45;
+
           pointer-events: none;
         }
+
+
+        /* Soft center lighting */
+
+        .star-dashboard-hero::after {
+          content: "";
+          position: absolute;
+          width: 65%;
+          height: 100%;
+          left: 17.5%;
+          top: 0;
+
+          background:
+            radial-gradient(
+              ellipse at center,
+              rgba(35, 100, 166, 0.18),
+              transparent 70%
+            );
+
+          pointer-events: none;
+        }
+
 
         .hero-content {
           position: relative;
           z-index: 2;
+
           width: 100%;
+          padding: 55px 25px;
+
           text-align: center;
-          padding: 38px 24px;
         }
 
-        .connection-status {
-          position: absolute;
-          top: 16px;
-          right: 20px;
-
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-
-          font-size: 11px;
-          color: #8da4bb;
-          white-space: nowrap;
-        }
-
-        .connection-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: #25d9c4;
-          box-shadow: 0 0 10px rgba(37, 217, 196, 0.7);
-        }
 
         .hero-title {
           margin: 0;
-          font-size: clamp(32px, 4vw, 50px);
-          line-height: 1.1;
+
+          color: #ffffff;
+
+          font-family:
+            Inter,
+            ui-sans-serif,
+            system-ui,
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
+
+          font-size: clamp(34px, 4vw, 58px);
           font-weight: 800;
-          letter-spacing: -1.5px;
+          line-height: 1.1;
+          letter-spacing: -1.8px;
         }
 
-        .hero-title span {
-          color: #ffffff;
-        }
 
         .hero-subtitle {
-          margin: 17px 0 0;
-          color: #aebed0;
-          font-size: 15px;
+          margin: 18px 0 0;
+
+          color: #a9bcd0;
+
+          font-family:
+            Inter,
+            ui-sans-serif,
+            system-ui,
+            sans-serif;
+
+          font-size: clamp(13px, 1.2vw, 16px);
           font-style: italic;
-          letter-spacing: 0.1px;
+          line-height: 1.5;
         }
 
-        /*
-         * QUICK ACTIONS
-         */
-        .quick-section {
+
+        /* =====================================================
+           QUICK ACTIONS SECTION
+        ===================================================== */
+
+        .quick-actions-section {
           width: 100%;
-          margin-top: 10px;
+          margin-top: 0;
         }
 
-        .section-label {
+
+        .quick-actions-heading {
+          width: 100%;
+
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 10px;
+          gap: 14px;
 
-          margin: 0 0 13px;
+          margin: 0 0 15px;
 
-          color: #86a9c9;
+          color: #8fa9c3;
+
           font-size: 11px;
           font-weight: 800;
           letter-spacing: 2px;
           text-transform: uppercase;
         }
 
-        .section-label::before,
-        .section-label::after {
+
+        .quick-actions-heading::before,
+        .quick-actions-heading::after {
           content: "";
-          height: 1px;
+
           flex: 1;
-          max-width: 210px;
-          background: rgba(78, 126, 169, 0.20);
+
+          height: 1px;
+
+          background: rgba(77, 124, 164, 0.25);
         }
 
-        /*
-         * FOUR CARDS ACROSS THE DESKTOP
-         */
-        .quick-grid {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 14px;
+
+        /* =====================================================
+           QUICK ACTION GRID
+
+           DESKTOP = FOUR ACROSS
+        ===================================================== */
+
+        .quick-actions-grid {
           width: 100%;
+
+          display: grid;
+
+          grid-template-columns:
+            repeat(4, minmax(0, 1fr));
+
+          gap: 18px;
         }
 
-        .quick-card {
-          min-height: 205px;
+
+        /* =====================================================
+           QUICK ACTION CARD
+        ===================================================== */
+
+        .quick-action-card {
           position: relative;
+
+          width: 100%;
+          min-height: 215px;
 
           display: flex;
           flex-direction: column;
 
-          padding: 17px 15px 14px;
+          padding: 18px 17px 15px;
 
-          border: 1px solid rgba(73, 120, 165, 0.38);
+          border:
+            1px solid
+            rgba(69, 119, 166, 0.42);
+
           border-top-width: 3px;
-          border-radius: 14px;
 
-          background: linear-gradient(
-            145deg,
-            #102542 0%,
-            #0d2038 100%
-          );
+          border-radius: 13px;
+
+          background:
+            linear-gradient(
+              145deg,
+              #102642 0%,
+              #0c1e35 100%
+            );
 
           transition:
-            transform 160ms ease,
-            border-color 160ms ease,
-            background 160ms ease;
+            transform 0.18s ease,
+            background 0.18s ease,
+            border-color 0.18s ease;
+
+          overflow: hidden;
         }
 
-        .quick-card:hover {
+
+        .quick-action-card:hover {
           transform: translateY(-3px);
-          background: linear-gradient(
-            145deg,
-            #132d4d 0%,
-            #102641 100%
-          );
+
+          background:
+            linear-gradient(
+              145deg,
+              #142d4c 0%,
+              #102641 100%
+            );
         }
 
-        .quick-card-orange {
+
+        /* Accent borders */
+
+        .quick-action-card.orange {
           border-top-color: #ff7043;
         }
 
-        .quick-card-green {
+        .quick-action-card.green {
           border-top-color: #00d084;
         }
 
-        .quick-card-purple {
-          border-top-color: #a56cff;
+        .quick-action-card.purple {
+          border-top-color: #a66cff;
         }
 
-        .quick-card-yellow {
+        .quick-action-card.yellow {
           border-top-color: #ffd21c;
         }
 
-        .quick-card-top {
+
+        /* =====================================================
+           CARD HEADER
+        ===================================================== */
+
+        .quick-action-header {
+          width: 100%;
+
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
+
           margin-bottom: 17px;
         }
 
-        .quick-icon {
-          width: 42px;
-          height: 42px;
+
+        .quick-action-icon {
+          width: 43px;
+          height: 43px;
 
           display: flex;
           align-items: center;
           justify-content: center;
 
-          border: 1px solid rgba(78, 145, 198, 0.35);
+          border:
+            1px solid
+            rgba(62, 126, 181, 0.42);
+
           border-radius: 11px;
 
-          background: rgba(25, 65, 98, 0.75);
+          background:
+            rgba(27, 65, 99, 0.82);
 
           font-size: 21px;
         }
 
-        .quick-arrow {
-          width: 22px;
-          height: 22px;
+
+        .quick-action-arrow {
+          width: 23px;
+          height: 23px;
 
           display: flex;
           align-items: center;
           justify-content: center;
 
-          border: 1px solid rgba(83, 137, 184, 0.42);
+          border:
+            1px solid
+            rgba(69, 124, 173, 0.48);
+
           border-radius: 6px;
 
-          color: #90b7d9;
-          background: rgba(23, 60, 94, 0.75);
+          background:
+            rgba(21, 56, 89, 0.82);
+
+          color: #8cb2d5;
 
           font-size: 13px;
+          font-weight: 700;
         }
 
-        .quick-title {
+
+        /* =====================================================
+           CARD TEXT
+        ===================================================== */
+
+        .quick-action-card h3 {
+          margin: 0;
+
           color: #ffffff;
-          font-size: 15px;
-          line-height: 1.25;
+
+          font-size: 16px;
           font-weight: 800;
+          line-height: 1.25;
         }
 
-        .quick-description {
-          margin-top: 8px;
-          min-height: 42px;
 
-          color: #8da9c1;
+        .quick-action-card p {
+          margin: 8px 0 0;
+
+          max-width: 260px;
+
+          color: #91aac1;
+
           font-size: 12px;
-          line-height: 1.45;
+          line-height: 1.48;
         }
 
-        .quick-divider {
+
+        /* =====================================================
+           CARD FOOTER
+        ===================================================== */
+
+        .quick-action-line {
           width: 100%;
           height: 1px;
+
           margin-top: auto;
           margin-bottom: 11px;
 
-          background: rgba(82, 126, 163, 0.23);
+          background:
+            rgba(73, 120, 161, 0.25);
         }
 
-        .quick-open {
+
+        .quick-action-open {
           font-size: 11px;
           font-weight: 800;
         }
 
-        .quick-card-orange .quick-open {
+
+        .quick-action-card.orange
+        .quick-action-open {
           color: #ff7043;
         }
 
-        .quick-card-green .quick-open {
+
+        .quick-action-card.green
+        .quick-action-open {
           color: #00d084;
         }
 
-        .quick-card-purple .quick-open {
-          color: #ad79ff;
+
+        .quick-action-card.purple
+        .quick-action-open {
+          color: #ac7bff;
         }
 
-        .quick-card-yellow .quick-open {
+
+        .quick-action-card.yellow
+        .quick-action-open {
           color: #ffd21c;
         }
 
-        .quick-open span {
-          margin-left: 2px;
-        }
 
-        /*
-         * PARTNER REFERRAL
-         */
-        .referral-card {
+        /* =====================================================
+           PARTNER REFERRAL
+        ===================================================== */
+
+        .partner-referral {
           width: 100%;
-          margin-top: 18px;
-          padding: 22px 23px;
+
+          margin-top: 20px;
+
+          padding: 23px 25px;
 
           display: grid;
-          grid-template-columns: 1fr auto;
-          align-items: center;
-          gap: 20px;
 
-          border: 1px solid rgba(71, 119, 165, 0.38);
+          grid-template-columns:
+            minmax(0, 1fr)
+            auto;
+
+          align-items: center;
+
+          gap: 30px;
+
+          border:
+            1px solid
+            rgba(67, 116, 163, 0.42);
+
           border-radius: 16px;
 
           background:
-            radial-gradient(
-              circle at 90% 30%,
-              rgba(102, 50, 145, 0.10),
-              transparent 40%
-            ),
             linear-gradient(
               145deg,
-              #102542 0%,
+              #102642 0%,
               #0d2038 100%
             );
         }
 
-        .referral-label {
-          margin-bottom: 5px;
+
+        .partner-label {
+          margin: 0 0 5px;
 
           color: #ff5f83;
+
           font-size: 10px;
           font-weight: 900;
-          letter-spacing: 1.6px;
+          letter-spacing: 1.7px;
         }
 
-        .referral-title {
+
+        .partner-title {
           margin: 0;
+
           color: #ffffff;
+
           font-size: 20px;
           font-weight: 700;
         }
 
-        .referral-description {
+
+        .partner-description {
           margin: 7px 0 0;
-          color: #9bb1c7;
+
+          color: #9db3c8;
+
           font-size: 13px;
           line-height: 1.5;
         }
 
-        .referral-actions {
+
+        .partner-actions {
           display: flex;
           align-items: center;
           gap: 12px;
         }
 
-        .referral-button {
+
+        .partner-button {
+          min-height: 39px;
+
           display: inline-flex;
           align-items: center;
           justify-content: center;
 
-          min-height: 39px;
-          padding: 0 18px;
+          padding: 0 17px;
 
-          border: 1px solid rgba(81, 135, 181, 0.42);
+          border:
+            1px solid
+            rgba(73, 128, 177, 0.46);
+
           border-radius: 8px;
 
-          color: #dceaf7;
-          background: rgba(14, 41, 67, 0.8);
+          background:
+            rgba(12, 39, 65, 0.82);
+
+          color: #d9e8f5;
 
           font-size: 11px;
           font-weight: 800;
 
-          transition: 160ms ease;
+          transition: 0.16s ease;
         }
 
-        .referral-button:hover {
-          background: rgba(25, 63, 95, 0.9);
+
+        .partner-button:hover {
+          background:
+            rgba(24, 61, 94, 0.95);
         }
 
-        .referral-button-primary {
+
+        .partner-button.primary {
           border-color: #ff5f83;
+
           background: #ff5f83;
+
           color: #ffffff;
         }
 
-        .referral-button-primary:hover {
+
+        .partner-button.primary:hover {
           background: #ff496f;
         }
 
-        /*
-         * DESKTOP LARGE SCREENS
-         *
-         * The dashboard expands instead of sitting in the middle
-         * as a narrow phone-sized column.
-         */
-        @media (min-width: 1500px) {
-          .dashboard-page {
-            padding-left: 40px;
-            padding-right: 40px;
+
+        /* =====================================================
+           LARGE DESKTOP / TV
+        ===================================================== */
+
+        @media (min-width: 1700px) {
+
+          .star-dashboard-inner {
+            max-width: 1650px;
+
+            padding-left: 55px;
+            padding-right: 55px;
           }
 
-          .dashboard-container {
-            width: min(1320px, 100%);
+
+          .star-dashboard-hero {
+            min-height: 285px;
           }
 
-          .dashboard-hero {
-            min-height: 225px;
+
+          .hero-content {
+            padding-top: 70px;
+            padding-bottom: 70px;
           }
 
-          .quick-card {
-            min-height: 215px;
+
+          .quick-actions-grid {
+            gap: 22px;
+          }
+
+
+          .quick-action-card {
+            min-height: 235px;
+            padding: 21px 20px 17px;
+          }
+
+
+          .quick-action-card h3 {
+            font-size: 17px;
+          }
+
+
+          .quick-action-card p {
+            font-size: 13px;
           }
         }
 
-        /*
-         * TABLETS
-         */
-        @media (max-width: 900px) {
-          .dashboard-page {
-            padding-left: 18px;
-            padding-right: 18px;
+
+        /* =====================================================
+           TABLET
+           
+           TWO CARDS PER ROW.
+        ===================================================== */
+
+        @media (max-width: 1000px) {
+
+          .star-dashboard-inner {
+            padding-left: 25px;
+            padding-right: 25px;
           }
 
-          .quick-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+
+          .quick-actions-grid {
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr));
           }
 
-          .referral-card {
+
+          .partner-referral {
             grid-template-columns: 1fr;
+            gap: 18px;
           }
 
-          .referral-actions {
+
+          .partner-actions {
             justify-content: flex-start;
           }
         }
 
-        /*
-         * SMALL TABLETS / LARGE PHONES
-         */
-        @media (max-width: 600px) {
-          .dashboard-page {
-            padding-left: 12px;
-            padding-right: 12px;
-            padding-bottom: 50px;
+
+        /* =====================================================
+           PHONE
+           
+           ONE CARD PER ROW.
+        ===================================================== */
+
+        @media (max-width: 650px) {
+
+          .star-dashboard-inner {
+            padding-left: 13px;
+            padding-right: 13px;
+            padding-bottom: 55px;
           }
 
-          .dashboard-hero {
-            margin-top: 14px;
+
+          .star-dashboard-hero {
+            min-height: 205px;
             margin-bottom: 25px;
-            min-height: 180px;
           }
 
-          .connection-status {
-            top: 11px;
-            right: 12px;
-            font-size: 9px;
-          }
 
           .hero-content {
-            padding: 40px 14px 30px;
+            padding:
+              50px
+              14px
+              40px;
           }
 
+
           .hero-title {
-            font-size: clamp(27px, 8vw, 38px);
+            font-size: clamp(
+              28px,
+              9vw,
+              40px
+            );
+
             letter-spacing: -1px;
           }
 
+
           .hero-subtitle {
-            font-size: 12px;
             margin-top: 13px;
+            font-size: 12px;
           }
 
-          .section-label::before,
-          .section-label::after {
-            max-width: 45px;
+
+          .quick-actions-heading {
+            font-size: 10px;
+            letter-spacing: 1.5px;
           }
 
-          .quick-grid {
+
+          .quick-actions-grid {
             grid-template-columns: 1fr;
             gap: 12px;
           }
 
-          .quick-card {
-            min-height: 175px;
+
+          .quick-action-card {
+            min-height: 180px;
           }
 
-          .referral-card {
-            padding: 18px;
+
+          .partner-referral {
+            padding: 19px;
           }
 
-          .referral-title {
+
+          .partner-title {
             font-size: 18px;
           }
 
-          .referral-actions {
+
+          .partner-description {
+            font-size: 12px;
+          }
+
+
+          .partner-actions {
             width: 100%;
+
             flex-direction: column;
             align-items: stretch;
           }
 
-          .referral-button {
+
+          .partner-button {
             width: 100%;
           }
         }
 
-        /*
-         * VERY SMALL PHONES
-         */
+
+        /* =====================================================
+           SMALL PHONE
+        ===================================================== */
+
         @media (max-width: 380px) {
+
+          .star-dashboard-inner {
+            padding-left: 9px;
+            padding-right: 9px;
+          }
+
+
+          .star-dashboard-hero {
+            min-height: 185px;
+          }
+
+
           .hero-title {
-            font-size: 26px;
+            font-size: 27px;
           }
 
-          .dashboard-hero {
-            min-height: 165px;
+
+          .hero-subtitle {
+            font-size: 11px;
           }
 
-          .quick-card {
-            padding: 15px;
+
+          .quick-action-card {
+            min-height: 170px;
           }
         }
 
-        /*
-         * TV / VERY LARGE DISPLAY
-         */
-        @media (min-width: 1800px) {
-          .dashboard-container {
-            width: min(1450px, 100%);
-          }
-
-          .dashboard-hero {
-            min-height: 245px;
-          }
-
-          .quick-grid {
-            gap: 18px;
-          }
-
-          .quick-card {
-            min-height: 225px;
-            padding: 20px 18px 16px;
-          }
-
-          .quick-title {
-            font-size: 16px;
-          }
-
-          .quick-description {
-            font-size: 13px;
-          }
-        }
       `}</style>
 
-      <div className="dashboard-container">
 
-        {/* HERO */}
-        <section className="dashboard-hero">
-          <div className="connection-status">
-            <span className="connection-dot" />
-            Connected to Deriv
-          </div>
+      {/* =====================================================
+          DASHBOARD
+      ===================================================== */}
 
-          <div className="hero-content">
-            <h1 className="hero-title">
-              Hello DOT94329668 👋
-            </h1>
+      <main className="star-dashboard">
 
-            <p className="hero-subtitle">
-              "Discipline beats intelligence in the long run."
-            </p>
-          </div>
-        </section>
+        <div className="star-dashboard-inner">
 
-        {/* QUICK ACTIONS */}
-        <section className="quick-section">
-          <div className="section-label">
-            Quick Actions
-          </div>
 
-          <div className="quick-grid">
-            {quickActions.map((action) => (
-              <QuickActionCard
-                key={action.title}
-                action={action}
-              />
-            ))}
-          </div>
-        </section>
+          {/* =================================================
+              HERO
+          ================================================= */}
 
-        {/* PARTNER REFERRAL */}
-        <section className="referral-card">
-          <div>
-            <div className="referral-label">
-              PARTNER REFERRAL
+          <section className="star-dashboard-hero">
+
+            <div className="hero-content">
+
+              <h1 className="hero-title">
+                Hello DOT94329668 👋
+              </h1>
+
+              <p className="hero-subtitle">
+                "Discipline beats intelligence in the long run."
+              </p>
+
             </div>
 
-            <h2 className="referral-title">
-              Master Partner share
-            </h2>
+          </section>
 
-            <p className="referral-description">
-              Earn from partners who join Deriv through your
-              Master Partner referral link.
-            </p>
-          </div>
 
-          <div className="referral-actions">
-            <a
-              href="/partner"
-              className="referral-button"
-            >
-              Show more ↓
-            </a>
+          {/* =================================================
+              QUICK ACTIONS
+          ================================================= */}
 
-            <a
-              href="/partner"
-              className="referral-button referral-button-primary"
-            >
-              Refer a partner →
-            </a>
-          </div>
-        </section>
+          <section className="quick-actions-section">
 
-      </div>
-    </main>
+            <div className="quick-actions-heading">
+              <span>Quick Actions</span>
+            </div>
+
+
+            <div className="quick-actions-grid">
+
+              {quickActions.map((action) => (
+                <QuickActionCard
+                  key={action.title}
+                  action={action}
+                />
+              ))}
+
+            </div>
+
+          </section>
+
+
+          {/* =================================================
+              PARTNER REFERRAL
+          ================================================= */}
+
+          <section className="partner-referral">
+
+            <div className="partner-content">
+
+              <div className="partner-label">
+                PARTNER REFERRAL
+              </div>
+
+              <h2 className="partner-title">
+                Master Partner share
+              </h2>
+
+              <p className="partner-description">
+                Earn from partners who join Deriv through your
+                Master Partner referral link.
+              </p>
+
+            </div>
+
+
+            <div className="partner-actions">
+
+              <a
+                href="/partner"
+                className="partner-button"
+              >
+                Show more ↓
+              </a>
+
+              <a
+                href="/partner"
+                className="partner-button primary"
+              >
+                Refer a partner →
+              </a>
+
+            </div>
+
+          </section>
+
+        </div>
+
+      </main>
+    </>
   );
 }
