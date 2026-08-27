@@ -1,3 +1,4 @@
+```jsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -20,6 +21,7 @@ const QUICK_ACTIONS = [
     description: 'Import an XML bot from your computer.',
     icon: '📁',
     color: 'orange',
+    action: 'upload',
   },
   {
     title: 'Free Bots',
@@ -30,7 +32,7 @@ const QUICK_ACTIONS = [
   },
   {
     title: 'Bot Builder',
-    description: 'Build a custom strategy with the visual editor.',
+    description: 'Build a custom bot with the visual editor.',
     icon: '🧩',
     color: 'purple',
     href: '/bot-builder',
@@ -40,33 +42,36 @@ const QUICK_ACTIONS = [
     description: 'Start fast with a pre-built strategy template.',
     icon: '⚡',
     color: 'yellow',
+    action: 'strategy',
   },
 ];
 
+const RISK_POINTS = [
+  'You may lose some or all of the funds you trade.',
+  'Past performance, signals, strategies, and historical results do not guarantee future results.',
+  'Leverage can increase both potential profits and potential losses.',
+  'Never trade with money you cannot afford to lose.',
+];
+
 export default function DashboardPage() {
-  const {
-    isLoggedIn,
-    balance,
-    activeAccount,
-    status,
-  } = useDeriv();
+  const { activeAccount } = useDeriv();
 
   const [markets, setMarkets] = useState(
     MARKETS.map((market) => ({
       ...market,
       price: market.base,
-      change: Math.random() * 2 - 1,
+      change: 0,
     }))
   );
 
   const [selectedMarket, setSelectedMarket] = useState('Vol 75');
   const [running, setRunning] = useState(false);
+  const [riskOpen, setRiskOpen] = useState(false);
 
   /*
-   * Live-looking ticker movement.
-   *
-   * This remains cosmetic until the actual Deriv tick subscription
-   * is connected to these markets.
+   * Keep the existing market-preview functionality.
+   * This is cosmetic until an actual tick subscription is connected
+   * to these market symbols.
    */
   useEffect(() => {
     const interval = setInterval(() => {
@@ -78,7 +83,10 @@ export default function DashboardPage() {
           return {
             ...market,
             price: market.price + movement,
-            change: movement >= 0 ? Math.random() * 1.5 : -Math.random() * 1.5,
+            change:
+              movement >= 0
+                ? Math.random() * 1.5
+                : -Math.random() * 1.5,
           };
         })
       );
@@ -92,262 +100,87 @@ export default function DashboardPage() {
     activeAccount?.loginid ||
     'Trader';
 
-  const balanceAmount =
-    isLoggedIn && balance
-      ? Number(balance.balance).toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
-      : '—';
+  const handleQuickAction = (action) => {
+    if (action === 'upload') {
+      alert('Upload Bot will be connected to the XML bot uploader.');
+      return;
+    }
 
-  const currency =
-    isLoggedIn && balance?.currency
-      ? balance.currency
-      : 'USD';
-
-  const connectionText =
-    status === 'connecting'
-      ? 'Connecting to Deriv'
-      : status === 'error'
-      ? 'Deriv connection error'
-      : isLoggedIn
-      ? 'Connected to Deriv'
-      : 'Not connected';
+    if (action === 'strategy') {
+      alert(
+        'Quick Strategy will open the pre-built strategy selector.'
+      );
+    }
+  };
 
   return (
     <div className="star-dashboard">
-
       {/* =========================================================
-          TOP UTILITY BAR
-      ========================================================= */}
-
+          EXISTING STARTRADERS HEADER
+          ========================================================= */}
       <UtilityBar />
-
-      {/* =========================================================
-          MAIN NAVIGATION
-      ========================================================= */}
-
       <TabNav />
 
       {/* =========================================================
-          MOVING MARKET TICKER
-      ========================================================= */}
-
-      <div className="market-ticker">
-        <div className="market-ticker-track">
-          {[...markets, ...markets].map((market, index) => (
-            <div
-              className="market-ticker-item"
-              key={`${market.name}-${index}`}
-            >
-              <span className="ticker-name">
-                {market.name}
-              </span>
-
-              <strong className="ticker-price">
-                {market.price.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </strong>
-
-              <span
-                className={
-                  market.change >= 0
-                    ? 'ticker-change positive'
-                    : 'ticker-change negative'
-                }
-              >
-                {market.change >= 0 ? '+' : ''}
-                {market.change.toFixed(2)}%
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* =========================================================
-          DASHBOARD CONTENT
-      ========================================================= */}
-
+          DASHBOARD MAIN AREA
+          ========================================================= */}
       <main className="dashboard-content">
 
         {/* =======================================================
-            WELCOME / TRADING TERMINAL
-        ======================================================= */}
-
+            DBTRADERS-STYLE WELCOME HERO
+            No connection status.
+            No balance.
+            No P/L.
+            No win rate.
+            No active bots.
+            ======================================================= */}
         <section className="dashboard-hero">
-
-          <div className="hero-grid"></div>
-
-          <div className="hero-status">
-            <span
-              className={
-                isLoggedIn
-                  ? 'status-dot online'
-                  : 'status-dot'
-              }
-            ></span>
-
-            {connectionText}
-          </div>
+          <div className="hero-grid" aria-hidden="true"></div>
 
           <div className="hero-content">
-
-            <div className="eyebrow">
-              STARTRADERS / TRADING TERMINAL
-            </div>
-
             <h1>
               Hello {accountId}
-              <span className="hello-wave">👋</span>
+              <span className="hello-wave" aria-hidden="true">
+                👋
+              </span>
             </h1>
 
-            <p>
-              Your trading workspace for Deriv markets,
-              automated strategies, analysis and professional
-              trading tools.
+            <p className="hero-quote">
+              "Discipline beats intelligence in the long run."
             </p>
-
           </div>
-
-        </section>
-
-        {/* =======================================================
-            ACCOUNT STATISTICS
-        ======================================================= */}
-
-        <section className="dashboard-stats">
-
-          {/* Balance */}
-
-          <div className="stat-card balance-card">
-
-            <div className="stat-heading">
-              ACCOUNT BALANCE
-
-              <span className="live-pill">
-                LIVE
-              </span>
-            </div>
-
-            <div className="balance-value">
-              {balanceAmount} {currency}
-            </div>
-
-            <div className="stat-footer">
-
-              <span>
-                {activeAccount?.account_type === 'demo'
-                  ? 'Demo Account'
-                  : 'Real Account'}
-              </span>
-
-              <span className="account-id">
-                {accountId}
-              </span>
-
-            </div>
-
-          </div>
-
-          {/* Today's P/L */}
-
-          <div className="stat-card">
-
-            <div className="stat-heading">
-              TODAY'S P/L
-            </div>
-
-            <div className="stat-value positive-value">
-              +$0.00
-            </div>
-
-            <div className="stat-description">
-              No completed trades today
-            </div>
-
-          </div>
-
-          {/* Win rate */}
-
-          <div className="stat-card">
-
-            <div className="stat-heading">
-              WIN RATE
-            </div>
-
-            <div className="stat-value">
-              —
-            </div>
-
-            <div className="stat-description">
-              Based on recent trades
-            </div>
-
-          </div>
-
-          {/* Active bots */}
-
-          <div className="stat-card">
-
-            <div className="stat-heading">
-              ACTIVE BOTS
-            </div>
-
-            <div className="stat-value">
-              0
-            </div>
-
-            <div className="stat-description">
-              No strategies running
-            </div>
-
-          </div>
-
         </section>
 
         {/* =======================================================
             QUICK ACTIONS
-        ======================================================= */}
-
+            Matches the DBTraders reference:
+            four comfortable cards in one row on desktop.
+            ======================================================= */}
         <section className="quick-actions-section">
-
-          <div className="section-header">
-
-            <div>
-              <div className="section-eyebrow">
-                QUICK ACTIONS
-              </div>
-
-              <h2>
-                Start Trading
-              </h2>
-            </div>
-
+          <div className="quick-actions-heading">
+            <span></span>
+            <h2>QUICK ACTIONS</h2>
+            <span></span>
           </div>
 
           <div className="quick-actions-grid">
-
             {QUICK_ACTIONS.map((action) => {
-
               const content = (
                 <>
                   <div className={`quick-icon ${action.color}`}>
-                    {action.icon}
+                    <span aria-hidden="true">{action.icon}</span>
                   </div>
 
-                  <div className="quick-arrow">
+                  <div
+                    className="quick-arrow"
+                    aria-hidden="true"
+                  >
                     →
                   </div>
 
-                  <h3>
-                    {action.title}
-                  </h3>
+                  <h3>{action.title}</h3>
 
-                  <p>
-                    {action.description}
-                  </p>
+                  <p>{action.description}</p>
 
                   <div className="quick-divider"></div>
 
@@ -371,59 +204,80 @@ export default function DashboardPage() {
 
               return (
                 <button
+                  type="button"
                   className={`quick-card ${action.color}`}
                   key={action.title}
-                  onClick={() =>
-                    alert(
-                      `${action.title} will be connected when this feature is built.`
-                    )
-                  }
+                  onClick={() => handleQuickAction(action.action)}
                 >
                   {content}
                 </button>
               );
             })}
-
           </div>
-
         </section>
 
         {/* =======================================================
-            MARKET OVERVIEW
-        ======================================================= */}
+            PARTNER REFERRAL
+            Matches the DBTraders reference section.
+            ======================================================= */}
+        <section className="partner-section">
+          <div className="partner-card">
+            <div className="partner-copy">
+              <div className="partner-eyebrow">
+                PARTNER REFERRAL
+              </div>
 
+              <h2>Master Partner share</h2>
+
+              <p>
+                Earn from partners who join Deriv through your
+                Master Partner referral link.
+              </p>
+            </div>
+
+            <div className="partner-badge">
+              Earn monthly
+            </div>
+
+            <div className="partner-actions">
+              <button type="button" className="partner-show">
+                Show more ↓
+              </button>
+
+              <button type="button" className="partner-refer">
+                Refer a partner →
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* =======================================================
+            MARKET WORKSPACE
+            Preserved from the previous dashboard so existing
+            dashboard functionality is not simply thrown away.
+            It sits below the DBTraders-style top layout.
+            ======================================================= */}
         <section className="market-overview">
-
-          <div className="section-header">
-
+          <div className="market-section-heading">
             <div>
-
               <div className="section-eyebrow">
                 MARKET OVERVIEW
               </div>
 
-              <h2>
-                Deriv Markets
-              </h2>
-
+              <h2>Deriv Markets</h2>
             </div>
 
             <div className="market-live">
               <span></span>
               MARKETS LIVE
             </div>
-
           </div>
 
           <div className="market-layout">
-
-            {/* Market list */}
-
             <div className="market-list">
-
               {markets.map((market) => (
-
                 <button
+                  type="button"
                   key={market.name}
                   className={
                     selectedMarket === market.name
@@ -434,21 +288,12 @@ export default function DashboardPage() {
                     setSelectedMarket(market.name)
                   }
                 >
-
                   <div>
-
-                    <strong>
-                      {market.name}
-                    </strong>
-
-                    <span>
-                      Synthetic Index
-                    </span>
-
+                    <strong>{market.name}</strong>
+                    <span>Synthetic Index</span>
                   </div>
 
                   <div className="market-number">
-
                     <strong>
                       {market.price.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
@@ -466,34 +311,20 @@ export default function DashboardPage() {
                       {market.change >= 0 ? '+' : ''}
                       {market.change.toFixed(2)}%
                     </span>
-
                   </div>
-
                 </button>
-
               ))}
-
             </div>
 
-            {/* Chart workspace */}
-
             <div className="chart-workspace">
-
               <div className="chart-header">
-
                 <div>
-
-                  <span>
-                    LIVE VIEW
-                  </span>
-
-                  <h3>
-                    {selectedMarket}
-                  </h3>
-
+                  <span>LIVE VIEW</span>
+                  <h3>{selectedMarket}</h3>
                 </div>
 
                 <button
+                  type="button"
                   className={
                     running
                       ? 'run-control running'
@@ -503,23 +334,21 @@ export default function DashboardPage() {
                     setRunning((value) => !value)
                   }
                 >
-
                   <span>
                     {running ? '■' : '▶'}
                   </span>
 
                   {running ? 'RUNNING' : 'RUN'}
-
                 </button>
-
               </div>
 
               <div className="chart-placeholder">
+                <div
+                  className="chart-grid"
+                  aria-hidden="true"
+                ></div>
 
-                <div className="chart-grid"></div>
-
-                <div className="candles">
-
+                <div className="candles" aria-hidden="true">
                   <span className="candle up"></span>
                   <span className="candle down"></span>
                   <span className="candle up"></span>
@@ -530,52 +359,108 @@ export default function DashboardPage() {
                   <span className="candle up"></span>
                   <span className="candle up"></span>
                   <span className="candle down"></span>
-
                 </div>
 
                 <div className="chart-message">
                   {selectedMarket} live trading workspace
                 </div>
-
               </div>
-
             </div>
-
           </div>
-
         </section>
-
       </main>
 
       {/* =========================================================
-          AI BUTTON
-      ========================================================= */}
+          FLOATING RISK DISCLAIMER
+          ========================================================= */}
+      <div className="floating-risk">
+        <button
+          type="button"
+          className="risk-disclaimer-button"
+          aria-expanded={riskOpen}
+          aria-controls="dashboard-risk-panel"
+          onClick={() => setRiskOpen((value) => !value)}
+        >
+          <span className="risk-warning-icon" aria-hidden="true">
+            !
+          </span>
+          Risk Disclaimer
+        </button>
 
+        {riskOpen && (
+          <section
+            id="dashboard-risk-panel"
+            className="dashboard-risk-panel"
+            aria-labelledby="dashboard-risk-heading"
+          >
+            <div className="dashboard-risk-header">
+              <div className="dashboard-risk-icon">
+                !
+              </div>
+
+              <h2 id="dashboard-risk-heading">
+                Risk Disclaimer
+              </h2>
+
+              <button
+                type="button"
+                className="risk-close"
+                aria-label="Close risk disclaimer"
+                onClick={() => setRiskOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <p className="dashboard-risk-intro">
+              Trading financial products involves significant
+              risk and may not be suitable for everyone. Please
+              understand the risks before trading.
+            </p>
+
+            <ul className="dashboard-risk-list">
+              {RISK_POINTS.map((point) => (
+                <li key={point}>
+                  <span aria-hidden="true">!</span>
+                  <p>{point}</p>
+                </li>
+              ))}
+            </ul>
+
+            <div className="dashboard-risk-note">
+              Star Traders does not provide financial advice.
+              Make sure you understand the product, the risks
+              involved, and the amount you are prepared to lose
+              before trading.
+            </div>
+          </section>
+        )}
+      </div>
+
+      {/* =========================================================
+          EXISTING AI BUTTON
+          ========================================================= */}
       <AiFab />
 
       {/* =========================================================
-          BOTTOM TRADING BAR
-      ========================================================= */}
-
+          EXISTING BOTTOM TRADING BAR
+          ========================================================= */}
       <div className="bottom-trading-bar">
-
         <button
+          type="button"
           className="bottom-run-button"
           onClick={() =>
             setRunning((value) => !value)
           }
         >
-
           {running ? '■ STOP' : '▶ RUN'}
-
         </button>
 
         <span>
           StarTraders trading workspace
         </span>
-
       </div>
-
     </div>
   );
 }
+```
