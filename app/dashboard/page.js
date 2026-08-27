@@ -1,45 +1,47 @@
+```jsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import UtilityBar from '@/components/UtilityBar';
 import TabNav from '@/components/TabNav';
 import AiFab from '@/components/AiFab';
+import RiskDisclaimer from '@/components/RiskDisclaimer';
 import { useDeriv } from '@/context/DerivProvider';
 
 const MARKETS = [
-  { name: 'Crash 500', base: 9021.73 },
-  { name: 'Vol 25', base: 1553.29 },
   { name: 'Vol 75', base: 6914.82 },
   { name: 'Vol 100', base: 8342.61 },
+  { name: 'Vol 25', base: 1553.29 },
   { name: 'Boom 500', base: 12480.41 },
+  { name: 'Crash 500', base: 9021.73 },
 ];
 
 const QUICK_ACTIONS = [
   {
     title: 'Upload Bot',
     description: 'Import an XML bot from your computer.',
-    icon: '📁',
-    color: 'orange',
+    icon: 'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z',
+    accent: 'orange',
   },
   {
     title: 'Free Bots',
     description: 'Browse ready-made trading strategies.',
-    icon: '🤖',
-    color: 'green',
+    icon: 'M5 9h14v11H5zM9 9V6a3 3 0 016 0v3',
+    accent: 'green',
     href: '/free-bots',
   },
   {
-    title: 'Bot Builder',
-    description: 'Build a custom strategy with the visual editor.',
-    icon: '🧩',
-    color: 'purple',
+    title: 'Bot Editor',
+    description: 'Build a custom bot with the visual editor.',
+    icon: 'M4 4h16v16H4zM8 8h8M8 12h8M8 16h5',
+    accent: 'purple',
     href: '/bot-builder',
   },
   {
     title: 'Quick Strategy',
     description: 'Start fast with a pre-built strategy template.',
-    icon: '⚡',
-    color: 'yellow',
+    icon: 'M13 2L4 14h7l-1 8 9-12h-7l1-8z',
+    accent: 'yellow',
   },
 ];
 
@@ -48,7 +50,6 @@ export default function DashboardPage() {
     isLoggedIn,
     balance,
     activeAccount,
-    status,
   } = useDeriv();
 
   const [markets, setMarkets] = useState(
@@ -59,30 +60,24 @@ export default function DashboardPage() {
     }))
   );
 
-  const [selectedMarket, setSelectedMarket] = useState('Vol 75');
-  const [running, setRunning] = useState(false);
-
-  /*
-   * Live-looking ticker movement.
-   *
-   * This remains cosmetic until the actual Deriv tick subscription
-   * is connected to these markets.
-   */
   useEffect(() => {
     const interval = setInterval(() => {
       setMarkets((current) =>
         current.map((market) => {
           const movement =
-            (Math.random() - 0.5) * market.base * 0.0004;
+            (Math.random() - 0.5) * market.base * 0.0003;
 
           return {
             ...market,
             price: market.price + movement,
-            change: movement >= 0 ? Math.random() * 1.5 : -Math.random() * 1.5,
+            change:
+              movement >= 0
+                ? Math.random() * 1.5
+                : -Math.random() * 1.5,
           };
         })
       );
-    }, 1500);
+    }, 1800);
 
     return () => clearInterval(interval);
   }, []);
@@ -92,47 +87,21 @@ export default function DashboardPage() {
     activeAccount?.loginid ||
     'Trader';
 
-  const balanceAmount =
+  const balanceDisplay =
     isLoggedIn && balance
-      ? Number(balance.balance).toLocaleString(undefined, {
+      ? `${Number(balance.balance).toLocaleString(undefined, {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
-        })
+        })} ${balance.currency}`
       : '—';
-
-  const currency =
-    isLoggedIn && balance?.currency
-      ? balance.currency
-      : 'USD';
-
-  const connectionText =
-    status === 'connecting'
-      ? 'Connecting to Deriv'
-      : status === 'error'
-      ? 'Deriv connection error'
-      : isLoggedIn
-      ? 'Connected to Deriv'
-      : 'Not connected';
 
   return (
     <div className="star-dashboard">
-
-      {/* =========================================================
-          TOP UTILITY BAR
-      ========================================================= */}
-
       <UtilityBar />
-
-      {/* =========================================================
-          MAIN NAVIGATION
-      ========================================================= */}
 
       <TabNav />
 
-      {/* =========================================================
-          MOVING MARKET TICKER
-      ========================================================= */}
-
+      {/* Moving DBT-style market strip */}
       <div className="market-ticker">
         <div className="market-ticker-track">
           {[...markets, ...markets].map((market, index) => (
@@ -166,190 +135,61 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* =========================================================
-          DASHBOARD CONTENT
-      ========================================================= */}
-
       <main className="dashboard-content">
 
-        {/* =======================================================
-            WELCOME / TRADING TERMINAL
-        ======================================================= */}
+        {/* DBT-style welcome section */}
+        <section className="dashboard-welcome">
+          <div className="welcome-background" />
 
-        <section className="dashboard-hero">
-
-          <div className="hero-grid"></div>
-
-          <div className="hero-status">
-            <span
-              className={
-                isLoggedIn
-                  ? 'status-dot online'
-                  : 'status-dot'
-              }
-            ></span>
-
-            {connectionText}
-          </div>
-
-          <div className="hero-content">
-
-            <div className="eyebrow">
-              STARTRADERS / TRADING TERMINAL
-            </div>
-
+          <div className="welcome-content">
             <h1>
               Hello {accountId}
               <span className="hello-wave">👋</span>
             </h1>
 
             <p>
-              Your trading workspace for Deriv markets,
-              automated strategies, analysis and professional
-              trading tools.
+              “The market rewards patience and punishes impatience.”
             </p>
-
           </div>
-
         </section>
 
-        {/* =======================================================
-            ACCOUNT STATISTICS
-        ======================================================= */}
-
-        <section className="dashboard-stats">
-
-          {/* Balance */}
-
-          <div className="stat-card balance-card">
-
-            <div className="stat-heading">
-              ACCOUNT BALANCE
-
-              <span className="live-pill">
-                LIVE
-              </span>
-            </div>
-
-            <div className="balance-value">
-              {balanceAmount} {currency}
-            </div>
-
-            <div className="stat-footer">
-
-              <span>
-                {activeAccount?.account_type === 'demo'
-                  ? 'Demo Account'
-                  : 'Real Account'}
-              </span>
-
-              <span className="account-id">
-                {accountId}
-              </span>
-
-            </div>
-
-          </div>
-
-          {/* Today's P/L */}
-
-          <div className="stat-card">
-
-            <div className="stat-heading">
-              TODAY'S P/L
-            </div>
-
-            <div className="stat-value positive-value">
-              +$0.00
-            </div>
-
-            <div className="stat-description">
-              No completed trades today
-            </div>
-
-          </div>
-
-          {/* Win rate */}
-
-          <div className="stat-card">
-
-            <div className="stat-heading">
-              WIN RATE
-            </div>
-
-            <div className="stat-value">
-              —
-            </div>
-
-            <div className="stat-description">
-              Based on recent trades
-            </div>
-
-          </div>
-
-          {/* Active bots */}
-
-          <div className="stat-card">
-
-            <div className="stat-heading">
-              ACTIVE BOTS
-            </div>
-
-            <div className="stat-value">
-              0
-            </div>
-
-            <div className="stat-description">
-              No strategies running
-            </div>
-
-          </div>
-
-        </section>
-
-        {/* =======================================================
-            QUICK ACTIONS
-        ======================================================= */}
-
+        {/* Quick Actions */}
         <section className="quick-actions-section">
-
-          <div className="section-header">
-
-            <div>
-              <div className="section-eyebrow">
-                QUICK ACTIONS
-              </div>
-
-              <h2>
-                Start Trading
-              </h2>
-            </div>
-
+          <div className="dashboard-section-heading">
+            <h2>Quick Actions</h2>
           </div>
 
           <div className="quick-actions-grid">
-
             {QUICK_ACTIONS.map((action) => {
-
-              const content = (
+              const card = (
                 <>
-                  <div className={`quick-icon ${action.color}`}>
-                    {action.icon}
+                  <div className={`quick-icon ${action.accent}`}>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d={action.icon} />
+                    </svg>
                   </div>
 
                   <div className="quick-arrow">
-                    →
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M5 12h14M13 6l6 6-6 6" />
+                    </svg>
                   </div>
 
-                  <h3>
-                    {action.title}
-                  </h3>
+                  <h3>{action.title}</h3>
 
-                  <p>
-                    {action.description}
-                  </p>
+                  <p>{action.description}</p>
 
-                  <div className="quick-divider"></div>
+                  <div className="quick-divider" />
 
                   <span className="quick-open">
                     Open →
@@ -361,221 +201,81 @@ export default function DashboardPage() {
                 return (
                   <a
                     href={action.href}
-                    className={`quick-card ${action.color}`}
+                    className={`quick-card ${action.accent}`}
                     key={action.title}
                   >
-                    {content}
+                    {card}
                   </a>
                 );
               }
 
               return (
                 <button
-                  className={`quick-card ${action.color}`}
+                  type="button"
+                  className={`quick-card ${action.accent}`}
                   key={action.title}
-                  onClick={() =>
+                  onClick={() => {
                     alert(
-                      `${action.title} will be connected when this feature is built.`
-                    )
-                  }
+                      `${action.title} will be connected when this feature is ready.`
+                    );
+                  }}
                 >
-                  {content}
+                  {card}
                 </button>
               );
             })}
-
           </div>
-
         </section>
 
-        {/* =======================================================
-            MARKET OVERVIEW
-        ======================================================= */}
-
-        <section className="market-overview">
-
-          <div className="section-header">
-
-            <div>
-
-              <div className="section-eyebrow">
-                MARKET OVERVIEW
-              </div>
-
-              <h2>
-                Deriv Markets
-              </h2>
-
+        {/* Partner referral section */}
+        <section className="partner-share-card">
+          <div className="partner-share-content">
+            <div className="partner-label">
+              PARTNER REFERRAL
             </div>
 
-            <div className="market-live">
-              <span></span>
-              MARKETS LIVE
-            </div>
+            <h2>Master Partner share</h2>
 
+            <p>
+              Invite traders to StarTraders and earn from your
+              partner activity.
+            </p>
           </div>
 
-          <div className="market-layout">
+          <div className="partner-share-side">
+            <span className="partner-badge">
+              Earn monthly
+            </span>
 
-            {/* Market list */}
+            <button type="button" className="partner-more">
+              Show more
+            </button>
 
-            <div className="market-list">
-
-              {markets.map((market) => (
-
-                <button
-                  key={market.name}
-                  className={
-                    selectedMarket === market.name
-                      ? 'market-row selected'
-                      : 'market-row'
-                  }
-                  onClick={() =>
-                    setSelectedMarket(market.name)
-                  }
-                >
-
-                  <div>
-
-                    <strong>
-                      {market.name}
-                    </strong>
-
-                    <span>
-                      Synthetic Index
-                    </span>
-
-                  </div>
-
-                  <div className="market-number">
-
-                    <strong>
-                      {market.price.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </strong>
-
-                    <span
-                      className={
-                        market.change >= 0
-                          ? 'positive'
-                          : 'negative'
-                      }
-                    >
-                      {market.change >= 0 ? '+' : ''}
-                      {market.change.toFixed(2)}%
-                    </span>
-
-                  </div>
-
-                </button>
-
-              ))}
-
-            </div>
-
-            {/* Chart workspace */}
-
-            <div className="chart-workspace">
-
-              <div className="chart-header">
-
-                <div>
-
-                  <span>
-                    LIVE VIEW
-                  </span>
-
-                  <h3>
-                    {selectedMarket}
-                  </h3>
-
-                </div>
-
-                <button
-                  className={
-                    running
-                      ? 'run-control running'
-                      : 'run-control'
-                  }
-                  onClick={() =>
-                    setRunning((value) => !value)
-                  }
-                >
-
-                  <span>
-                    {running ? '■' : '▶'}
-                  </span>
-
-                  {running ? 'RUNNING' : 'RUN'}
-
-                </button>
-
-              </div>
-
-              <div className="chart-placeholder">
-
-                <div className="chart-grid"></div>
-
-                <div className="candles">
-
-                  <span className="candle up"></span>
-                  <span className="candle down"></span>
-                  <span className="candle up"></span>
-                  <span className="candle up"></span>
-                  <span className="candle down"></span>
-                  <span className="candle up"></span>
-                  <span className="candle down"></span>
-                  <span className="candle up"></span>
-                  <span className="candle up"></span>
-                  <span className="candle down"></span>
-
-                </div>
-
-                <div className="chart-message">
-                  {selectedMarket} live trading workspace
-                </div>
-
-              </div>
-
-            </div>
-
+            <button type="button" className="partner-refer">
+              Refer a partner →
+            </button>
           </div>
-
         </section>
 
       </main>
 
-      {/* =========================================================
-          AI BUTTON
-      ========================================================= */}
+      <RiskDisclaimer />
 
       <AiFab />
 
-      {/* =========================================================
-          BOTTOM TRADING BAR
-      ========================================================= */}
-
-      <div className="bottom-trading-bar">
-
-        <button
-          className="bottom-run-button"
-          onClick={() =>
-            setRunning((value) => !value)
-          }
-        >
-
-          {running ? '■ STOP' : '▶ RUN'}
-
-        </button>
-
+      <div className="dashboard-bottom-status">
+        <span className="status-indicator" />
         <span>
-          StarTraders trading workspace
+          {isLoggedIn
+            ? `Connected · ${activeAccount?.account_type === 'demo' ? 'Demo' : 'Real'} account`
+            : 'Not connected to Deriv'}
         </span>
 
+        <span className="bottom-balance">
+          {balanceDisplay}
+        </span>
       </div>
-
     </div>
   );
 }
+```
