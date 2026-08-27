@@ -1,13 +1,9 @@
-```javascript
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-
+import { useState } from 'react';
 import UtilityBar from '@/components/UtilityBar';
 import TabNav from '@/components/TabNav';
 import AiFab from '@/components/AiFab';
-import RiskDisclaimer from '@/components/RiskDisclaimer';
 import { useDeriv } from '@/context/DerivProvider';
 
 const QUICK_ACTIONS = [
@@ -16,7 +12,7 @@ const QUICK_ACTIONS = [
     description: 'Import an XML bot from your computer.',
     icon: '📁',
     color: 'orange',
-    href: '/bot-builder',
+    action: 'upload',
   },
   {
     title: 'Free Bots',
@@ -37,226 +33,251 @@ const QUICK_ACTIONS = [
     description: 'Start fast with a pre-built strategy template.',
     icon: '⚡',
     color: 'yellow',
-    href: '/bot-builder',
+    action: 'strategy',
   },
 ];
 
+function QuickActionCard({ item }) {
+  const content = (
+    <>
+      <div className={`quick-icon ${item.color}`}>
+        {item.icon}
+      </div>
+
+      <div className="quick-arrow">→</div>
+
+      <h3>{item.title}</h3>
+
+      <p>{item.description}</p>
+
+      <div className="quick-divider" />
+
+      <span className="quick-open">
+        Open →
+      </span>
+    </>
+  );
+
+  if (item.href) {
+    return (
+      <a
+        href={item.href}
+        className={`quick-card ${item.color}`}
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={`quick-card ${item.color}`}
+      onClick={() => {
+        if (item.action === 'upload') {
+          alert('Bot upload will be connected here.');
+        }
+
+        if (item.action === 'strategy') {
+          alert('Quick Strategy will be connected here.');
+        }
+      }}
+    >
+      {content}
+    </button>
+  );
+}
+
+function RiskDisclaimerButton() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className={`risk-floating ${open ? 'open' : ''}`}>
+      <button
+        type="button"
+        className="risk-floating-button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-controls="risk-floating-panel"
+      >
+        <span className="risk-warning-icon">!</span>
+        <span>Risk Disclaimer</span>
+      </button>
+
+      {open && (
+        <div
+          id="risk-floating-panel"
+          className="risk-floating-panel"
+        >
+          <div className="risk-panel-title">
+            Risk disclaimer
+          </div>
+
+          <p>
+            Star Traders offers complex derivatives such as
+            options and contracts for difference (CFDs). These
+            products may not be suitable for all clients, and
+            trading them puts your capital at risk.
+          </p>
+
+          <p>
+            Please make sure you understand the products,
+            associated risks, and possible losses before trading.
+          </p>
+
+          <p>
+            Trading decisions should be made carefully and
+            according to your own financial circumstances and
+            risk tolerance.
+          </p>
+
+          <div className="risk-panel-note">
+            Trading involves risk and you may lose your capital.
+            Star Traders does not provide financial advice.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PartnerReferral() {
+  return (
+    <section className="partner-section">
+      <div className="partner-card">
+        <div className="partner-copy">
+          <div className="partner-eyebrow">
+            PARTNER REFERRAL
+          </div>
+
+          <h2>Master Partner share</h2>
+
+          <p>
+            Earn from partners who join Star Traders through
+            your Master Partner referral link.
+          </p>
+        </div>
+
+        <div className="partner-badge">
+          Earn monthly
+        </div>
+
+        <button
+          type="button"
+          className="partner-more"
+          onClick={() =>
+            alert('Partner referral information will open here.')
+          }
+        >
+          Show more ↓
+        </button>
+
+        <button
+          type="button"
+          className="partner-refer"
+          onClick={() =>
+            alert('Your partner referral flow will open here.')
+          }
+        >
+          Refer a partner →
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export default function DashboardPage() {
   const { activeAccount } = useDeriv();
-
-  const [showRisk, setShowRisk] = useState(false);
-  const riskRef = useRef(null);
 
   const accountId =
     activeAccount?.account_id ||
     activeAccount?.loginid ||
     'Trader';
 
-  useEffect(() => {
-    if (showRisk && riskRef.current) {
-      setTimeout(() => {
-        riskRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-        });
-      }, 50);
-    }
-  }, [showRisk]);
-
   return (
-    <div className="star-dashboard dashboard-page">
-
-      {/* =========================================================
-          TOP UTILITY BAR
-          Keep the existing project component.
-      ========================================================= */}
+    <div className="star-dashboard">
+      {/* =====================================================
+          TOP BAR
+      ===================================================== */}
       <UtilityBar />
 
-      {/* =========================================================
+      {/* =====================================================
           MAIN NAVIGATION
-      ========================================================= */}
+      ===================================================== */}
       <TabNav />
 
-      {/* =========================================================
-          MAIN DASHBOARD
-      ========================================================= */}
-      <main className="dashboard-main">
+      {/* =====================================================
+          DASHBOARD
+      ===================================================== */}
+      <main className="dashboard-page">
 
-        {/* =======================================================
-            DBTRADERS-STYLE WELCOME HERO
-            No balance.
-            No P/L.
-            No win rate.
-            No active bots.
-            No Deriv connection message.
-        ======================================================= */}
-        <section className="dbt-welcome">
+        {/* ===================================================
+            WELCOME HERO
+            IMPORTANT:
+            No balance card.
+            No P/L card.
+            No win-rate card.
+            No active-bots card.
+            No "Connected to Deriv" message.
+        =================================================== */}
+        <section className="dashboard-hero">
 
-          <div className="dbt-welcome-pattern"></div>
+          <div className="hero-grid" />
 
-          <div className="dbt-welcome-content">
+          <div className="hero-content">
 
             <h1>
               Hello {accountId}
-              <span className="dbt-wave">👋</span>
+              <span className="hello-wave">👋</span>
             </h1>
 
-            <p>
+            <p className="hero-quote">
               "Discipline beats intelligence in the long run."
             </p>
 
           </div>
-
         </section>
 
-        {/* =======================================================
+        {/* ===================================================
             QUICK ACTIONS
-        ======================================================= */}
-        <section className="dbt-content-section">
+        =================================================== */}
+        <section className="quick-actions-section">
 
-          <div className="dbt-section-title">
-            <span className="dbt-line"></span>
-            <span>QUICK ACTIONS</span>
-            <span className="dbt-line"></span>
+          <div className="quick-section-heading">
+            <span />
+            <div>QUICK ACTIONS</div>
+            <span />
           </div>
 
-          <div className="dbt-quick-grid">
-
-            {QUICK_ACTIONS.map((action) => (
-              <Link
-                key={action.title}
-                href={action.href}
-                className={`dbt-action-card ${action.color}`}
-              >
-
-                <div className="dbt-action-icon">
-                  {action.icon}
-                </div>
-
-                <div className="dbt-action-arrow">
-                  →
-                </div>
-
-                <h3>
-                  {action.title}
-                </h3>
-
-                <p>
-                  {action.description}
-                </p>
-
-                <div className="dbt-action-divider"></div>
-
-                <span className="dbt-action-open">
-                  Open →
-                </span>
-
-              </Link>
+          <div className="quick-actions-grid">
+            {QUICK_ACTIONS.map((item) => (
+              <QuickActionCard
+                key={item.title}
+                item={item}
+              />
             ))}
-
           </div>
 
         </section>
 
-        {/* =======================================================
-            MASTER PARTNER SHARE
-            Matches the DBTraders dashboard section shown in your
-            screenshot.
-        ======================================================= */}
-        <section className="dbt-partner-section">
-
-          <div className="dbt-partner-card">
-
-            <div className="dbt-partner-top">
-
-              <div>
-                <div className="dbt-partner-label">
-                  PARTNER REFERRAL
-                </div>
-
-                <h2>
-                  Master Partner share
-                </h2>
-              </div>
-
-              <span className="dbt-earn-pill">
-                Earn monthly
-              </span>
-
-            </div>
-
-            <p>
-              Earn from partners who join Star Traders through
-              your Master Partner referral link.
-            </p>
-
-            <div className="dbt-partner-actions">
-
-              <button
-                type="button"
-                className="dbt-show-more"
-                onClick={() =>
-                  alert('Partner referral details will appear here.')
-                }
-              >
-                Show more ↓
-              </button>
-
-              <button
-                type="button"
-                className="dbt-refer-button"
-                onClick={() =>
-                  alert('Partner referral will be available here.')
-                }
-              >
-                Refer a partner →
-              </button>
-
-            </div>
-
-          </div>
-
-        </section>
-
-        {/* =======================================================
-            RISK DISCLAIMER
-            Hidden until the floating Risk Disclaimer button is
-            clicked.
-        ======================================================= */}
-        {showRisk && (
-          <div ref={riskRef} className="dashboard-risk-area">
-            <RiskDisclaimer />
-          </div>
-        )}
+        {/* ===================================================
+            PARTNER REFERRAL
+        =================================================== */}
+        <PartnerReferral />
 
       </main>
 
-      {/* =========================================================
-          FLOATING RISK DISCLAIMER BUTTON
-          This stays visible on desktop, tablet and phone.
-      ========================================================= */}
-      <button
-        type="button"
-        className={`floating-risk-button ${
-          showRisk ? 'floating-risk-button-open' : ''
-        }`}
-        onClick={() => setShowRisk((value) => !value)}
-        aria-expanded={showRisk}
-        aria-controls="risk-disclaimer"
-      >
-        <span className="floating-risk-icon">⚠</span>
-        <span>
-          {showRisk ? 'Hide Risk Disclaimer' : 'Risk Disclaimer'}
-        </span>
-      </button>
-
-      {/* =========================================================
-          AI BUTTON
-          Existing component — unchanged.
-      ========================================================= */}
+      {/* =====================================================
+          AI FLOATING BUTTON
+      ===================================================== */}
       <AiFab />
+
+      {/* =====================================================
+          RISK DISCLAIMER
+          FLOATS AT BOTTOM LEFT
+      ===================================================== */}
+      <RiskDisclaimerButton />
 
     </div>
   );
 }
-```
