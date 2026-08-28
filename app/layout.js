@@ -1,4 +1,4 @@
-import './globals.css';
+import './global.css';
 import { DerivProvider } from '@/context/DerivProvider';
 
 export const metadata = {
