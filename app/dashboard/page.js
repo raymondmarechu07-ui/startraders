@@ -112,22 +112,13 @@ export default function DashboardPage() {
   return (
     <div className="star-dashboard">
 
-      {/* =========================================================
-          TOP UTILITY BAR
-          ========================================================= */}
-
+      {/* TOP UTILITY BAR */}
       <UtilityBar />
 
-      {/* =========================================================
-          MAIN NAVIGATION
-          ========================================================= */}
-
+      {/* MAIN NAVIGATION */}
       <TabNav />
 
-      {/* =========================================================
-          MARKET TICKER
-          ========================================================= */}
-
+      {/* MARKET TICKER */}
       <div className="market-ticker">
         <div className="market-ticker-track">
           {[...markets, ...markets].map((market, index) => (
@@ -161,23 +152,20 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* =========================================================
-          MAIN DASHBOARD
-          ========================================================= */}
-
+      {/* MAIN DASHBOARD */}
       <main className="dashboard-content">
 
-        {/* =======================================================
-            WELCOME HERO
-            ======================================================= */}
-
+        {/* WELCOME HERO */}
         <section className="dashboard-hero">
 
-          <div className="hero-grid" aria-hidden="true"></div>
+          <div
+            className="hero-grid"
+            aria-hidden="true"
+          ></div>
 
           <div className="hero-content">
 
-            <div className="eyebrow">
+            <div className="eyebrow orange-accent">
               STARTRADERS
             </div>
 
@@ -194,15 +182,16 @@ export default function DashboardPage() {
 
         </section>
 
-        {/* =======================================================
-            QUICK ACTIONS
-            ======================================================= */}
-
+        {/* QUICK ACTIONS */}
         <section className="quick-actions-section">
 
           <div className="quick-section-heading">
             <span></span>
-            <div>QUICK ACTIONS</div>
+
+            <div className="orange-accent">
+              QUICK ACTIONS
+            </div>
+
             <span></span>
           </div>
 
@@ -220,7 +209,7 @@ export default function DashboardPage() {
                     →
                   </div>
 
-                  <h3>
+                  <h3 className="orange-accent">
                     {action.title}
                   </h3>
 
@@ -253,7 +242,9 @@ export default function DashboardPage() {
                   type="button"
                   className={`quick-card ${action.color}`}
                   key={action.title}
-                  onClick={() => handleQuickAction(action.action)}
+                  onClick={() =>
+                    handleQuickAction(action.action)
+                  }
                 >
                   {content}
                 </button>
@@ -264,22 +255,21 @@ export default function DashboardPage() {
 
         </section>
 
-        {/* =======================================================
-            MARKET OVERVIEW
-            ======================================================= */}
-
+        {/* MARKET OVERVIEW */}
         <section className="market-overview">
 
           <div className="section-heading-row">
 
             <div>
-              <div className="section-eyebrow">
+
+              <div className="section-eyebrow orange-accent">
                 MARKET OVERVIEW
               </div>
 
               <h2>
                 Deriv Markets
               </h2>
+
             </div>
 
             <div className="market-live">
@@ -291,8 +281,7 @@ export default function DashboardPage() {
 
           <div className="market-layout">
 
-            {/* Market list */}
-
+            {/* MARKET LIST */}
             <div className="market-list">
 
               {markets.map((market) => (
@@ -304,10 +293,13 @@ export default function DashboardPage() {
                       ? 'market-row selected'
                       : 'market-row'
                   }
-                  onClick={() => setSelectedMarket(market.name)}
+                  onClick={() =>
+                    setSelectedMarket(market.name)
+                  }
                 >
 
                   <div className="market-row-name">
+
                     <strong>
                       {market.name}
                     </strong>
@@ -315,6 +307,7 @@ export default function DashboardPage() {
                     <span>
                       Synthetic Index
                     </span>
+
                   </div>
 
                   <div className="market-number">
@@ -344,20 +337,21 @@ export default function DashboardPage() {
 
             </div>
 
-            {/* Chart workspace */}
-
+            {/* CHART WORKSPACE */}
             <div className="chart-workspace">
 
               <div className="chart-header">
 
                 <div>
-                  <span>
+
+                  <span className="orange-accent">
                     LIVE VIEW
                   </span>
 
                   <h3>
                     {selectedMarket}
                   </h3>
+
                 </div>
 
                 <button
@@ -376,6 +370,7 @@ export default function DashboardPage() {
                   </span>
 
                   {running ? 'RUNNING' : 'RUN'}
+
                 </button>
 
               </div>
@@ -387,7 +382,10 @@ export default function DashboardPage() {
                   aria-hidden="true"
                 ></div>
 
-                <div className="candles" aria-hidden="true">
+                <div
+                  className="candles"
+                  aria-hidden="true"
+                >
                   <span className="candle up"></span>
                   <span className="candle down"></span>
                   <span className="candle up"></span>
@@ -412,11 +410,7 @@ export default function DashboardPage() {
 
         </section>
 
-        {/* =======================================================
-            RISK DISCLAIMER
-            Hidden until the floating button is clicked.
-            ======================================================= */}
-
+        {/* RISK DISCLAIMER */}
         {riskOpen && (
           <section
             id="risk-disclaimer"
@@ -429,6 +423,7 @@ export default function DashboardPage() {
               <div className="risk-disclaimer-header">
 
                 <div className="risk-disclaimer-icon">
+
                   <svg
                     viewBox="0 0 24 24"
                     fill="none"
@@ -439,16 +434,19 @@ export default function DashboardPage() {
                     <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                     <path d="M12 9v4M12 17h.01" />
                   </svg>
+
                 </div>
 
                 <div>
-                  <div className="risk-label">
+
+                  <div className="risk-label orange-accent">
                     IMPORTANT
                   </div>
 
                   <h2 id="risk-disclaimer-heading">
                     Risk Disclaimer
                   </h2>
+
                 </div>
 
                 <button
@@ -513,16 +511,10 @@ export default function DashboardPage() {
 
       </main>
 
-      {/* =========================================================
-          FLOATING AI
-          ========================================================= */}
-
+      {/* FLOATING AI */}
       <AiFab />
 
-      {/* =========================================================
-          FLOATING RISK DISCLAIMER BUTTON
-          ========================================================= */}
-
+      {/* FLOATING RISK DISCLAIMER BUTTON */}
       <button
         type="button"
         className={
@@ -547,6 +539,7 @@ export default function DashboardPage() {
         aria-expanded={riskOpen}
         aria-controls="risk-disclaimer"
       >
+
         <span className="floating-risk-symbol">
           !
         </span>
@@ -554,12 +547,10 @@ export default function DashboardPage() {
         <span>
           Risk Disclaimer
         </span>
+
       </button>
 
-      {/* =========================================================
-          BOTTOM TRADING BAR
-          ========================================================= */}
-
+      {/* BOTTOM TRADING BAR */}
       <div className="bottom-trading-bar">
 
         <button
