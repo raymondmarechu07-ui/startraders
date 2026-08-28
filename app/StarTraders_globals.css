@@ -4438,3 +4438,23 @@ main{max-width:640px;margin:0 auto;padding:18px 16px 40px;}
 .star-dashboard .eyebrow {
   color: #F4A261;
 }
+
+/* STARTRADERS SUBTLE ORANGE ACCENTS */
+
+.star-dashboard .orange-accent {
+  color: #F4A261 !important;
+}
+
+.star-dashboard .eyebrow,
+.star-dashboard .section-eyebrow,
+.star-dashboard .quick-section-heading > div {
+  color: #F4A261 !important;
+}
+
+.star-dashboard .quick-card h3 {
+  color: #F4A261 !important;
+}
+
+.star-dashboard .chart-header > div > span {
+  color: #F4A261 !important;
+}
