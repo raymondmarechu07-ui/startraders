@@ -1,435 +1,651 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import UtilityBar from '@/components/UtilityBar';
+import TabNav from '@/components/TabNav';
+import AiFab from '@/components/AiFab';
 import { useDeriv } from '@/context/DerivProvider';
-import RiskDisclaimer from '@/components/RiskDisclaimer';
-import LoadingScreen from '@/components/LoadingScreen';
 
-const SCAN_MESSAGES = [
-  'Setting up your trading session...',
-  'Connecting to markets...',
-  'Loading your dashboard...',
-  'Almost ready...',
+const MARKETS = [
+  { name: 'Crash 500', base: 9021.73 },
+  { name: 'Vol 25', base: 1553.29 },
+  { name: 'Vol 75', base: 6914.82 },
+  { name: 'Vol 100', base: 8342.61 },
+  { name: 'Boom 500', base: 12480.41 },
 ];
 
-const HEADLINE_PHRASES = [
-  'Simplify your market',
-  'AI bots that trade while you sleep',
-  'Copy top traders in real time',
-  'Your ultimate partner in trading success',
+const QUICK_ACTIONS = [
+  {
+    title: 'Upload Bot',
+    description: 'Import an XML bot from your computer.',
+    icon: '📁',
+    color: 'orange',
+  },
+  {
+    title: 'Free Bots',
+    description: 'Browse ready-made trading strategies.',
+    icon: '🤖',
+    color: 'green',
+    href: '/free-bots',
+  },
+  {
+    title: 'Bot Builder',
+    description: 'Build a custom strategy with the visual editor.',
+    icon: '🧩',
+    color: 'purple',
+    href: '/bot-builder',
+  },
+  {
+    title: 'Quick Strategy',
+    description: 'Start fast with a pre-built strategy template.',
+    icon: '⚡',
+    color: 'yellow',
+  },
 ];
 
-const MARKET_TABS = [
-  'BULL MARKET',
-  'BEAR MARKET',
-  'VOL 10',
-  'VOL 25',
-  'VOL 50',
-  'VOL 75',
-  'VOL 10 (1S)',
-  'VOL 100 (1S)',
-];
+export default function DashboardPage() {
+  const {
+    isLoggedIn,
+    balance,
+    activeAccount,
+    status,
+  } = useDeriv();
 
-// Stats animate from 0 up to these targets once they scroll into view.
-const STATS = [
-  { target: 50, decimals: 0, prefix: '', suffix: 'K+', label: 'Active Traders' },
-  { target: 2.5, decimals: 1, prefix: '$', suffix: 'B+', label: 'Trading Volume' },
-  { target: 99.9, decimals: 1, prefix: '', suffix: '%', label: 'Uptime' },
-  { target: 150, decimals: 0, prefix: '', suffix: '+', label: 'Trading Pairs' },
-];
+  const [markets, setMarkets] = useState(
+    MARKETS.map((market) => ({
+      ...market,
+      price: market.base,
+      change: Math.random() * 2 - 1,
+    }))
+  );
 
-function useCountUp(active) {
-  const [values, setValues] = useState(STATS.map(() => 0));
+  const [selectedMarket, setSelectedMarket] = useState('Vol 75');
+  const [running, setRunning] = useState(false);
+  const [riskOpen, setRiskOpen] = useState(false);
 
-  useEffect(() => {
-    if (!active) return;
+  const balanceAmount =
+    isLoggedIn && balance
+      ? Number(balance.balance).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      : '—';
 
-    const duration = 1400;
-    const start = performance.now();
-    let frame;
+  const currency =
+    isLoggedIn && balance?.currency
+      ? balance.currency
+      : 'USD';
 
-    function tick(now) {
-      const elapsed = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - elapsed, 3);
-      setValues(STATS.map((s) => s.target * eased));
-      if (elapsed < 1) frame = requestAnimationFrame(tick);
-    }
-
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [active]);
-
-  return values;
-}
-
-export default function HomePage() {
-  const { login } = useDeriv();
-  const [loading, setLoading] = useState(true);
-  const [progress, setProgress] = useState(0);
-  const [scanMsgIndex, setScanMsgIndex] = useState(0);
-  const [headline, setHeadline] = useState('');
-  const phraseRef = useRef(0);
-
-  const statsRef = useRef(null);
-  const [statsVisible, setStatsVisible] = useState(false);
-  const statValues = useCountUp(statsVisible);
-
-  useEffect(() => {
-    if (loading || !statsRef.current) return;
-    const el = statsRef.current;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setStatsVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.4 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [loading]);
-
+  /*
+   * Live-looking ticker movement.
+   *
+   * This remains cosmetic until the actual Deriv tick subscription
+   * is connected to these markets.
+   */
   useEffect(() => {
     const interval = setInterval(() => {
-      setProgress((p) => {
-        const next = Math.min(100, p + 2);
-        if (next >= 100) {
-          clearInterval(interval);
-          setTimeout(() => setLoading(false), 500);
-        }
-        return next;
-      });
-    }, 100);
+      setMarkets((current) =>
+        current.map((market) => {
+          const movement =
+            (Math.random() - 0.5) * market.base * 0.0004;
+
+          return {
+            ...market,
+            price: market.price + movement,
+            change: movement >= 0 ? Math.random() * 1.5 : -Math.random() * 1.5,
+          };
+        })
+      );
+    }, 1500);
 
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const idx = Math.min(
-      SCAN_MESSAGES.length - 1,
-      Math.floor(progress / 26)
-    );
-    setScanMsgIndex(idx);
-  }, [progress]);
+  const accountId =
+    activeAccount?.account_id ||
+    activeAccount?.loginid ||
+    'Trader';
 
-  useEffect(() => {
-    if (loading) return;
+  const balanceAmount =
+    isLoggedIn && balance
+      ? Number(balance.balance).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      : '—';
 
-    let cancelled = false;
-    let typeTimer;
-    let eraseTimer;
-    let nextTimer;
+  const currency =
+    isLoggedIn && balance?.currency
+      ? balance.currency
+      : 'USD';
 
-    function typePhrase() {
-      if (cancelled) return;
-
-      const text = HEADLINE_PHRASES[phraseRef.current];
-      let i = 0;
-
-      typeTimer = setInterval(() => {
-        if (cancelled) {
-          clearInterval(typeTimer);
-          return;
-        }
-
-        i += 1;
-        setHeadline(text.slice(0, i));
-
-        if (i >= text.length) {
-          clearInterval(typeTimer);
-          nextTimer = setTimeout(erasePhrase, 1800);
-        }
-      }, 55);
-    }
-
-    function erasePhrase() {
-      if (cancelled) return;
-
-      const text = HEADLINE_PHRASES[phraseRef.current];
-      let i = text.length;
-
-      eraseTimer = setInterval(() => {
-        if (cancelled) {
-          clearInterval(eraseTimer);
-          return;
-        }
-
-        i -= 1;
-        setHeadline(text.slice(0, i));
-
-        if (i <= 0) {
-          clearInterval(eraseTimer);
-          phraseRef.current =
-            (phraseRef.current + 1) % HEADLINE_PHRASES.length;
-          nextTimer = setTimeout(typePhrase, 300);
-        }
-      }, 30);
-    }
-
-    typePhrase();
-
-    return () => {
-      cancelled = true;
-      clearInterval(typeTimer);
-      clearInterval(eraseTimer);
-      clearTimeout(nextTimer);
-    };
-  }, [loading]);
-
-  if (loading) {
-    return (
-      <LoadingScreen
-        message={SCAN_MESSAGES[scanMsgIndex]}
-        progress={progress}
-      />
-    );
-  }
+  const connectionText =
+    status === 'connecting'
+      ? 'Connecting to Deriv'
+      : status === 'error'
+      ? 'Deriv connection error'
+      : isLoggedIn
+      ? 'Connected to Deriv'
+      : 'Not connected';
 
   return (
-    <div id="homepage" className="visible">
-      <nav className="home-nav">
-        <div className="nav-logo wordmark">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="M12 2L14.6 9H21.5L15.9 13.2L18.1 20L12 15.9L5.9 20L8.1 13.2L2.5 9H9.4L12 2Z"
-              fill="url(#starGrad2)"
-            />
-            <defs>
-              <linearGradient id="starGrad2" x1="0" y1="0" x2="24" y2="24">
-                <stop offset="0%" stopColor="#ffd08a" />
-                <stop offset="100%" stopColor="#ff7a18" />
-              </linearGradient>
-            </defs>
-          </svg>
-          <span className="star">STAR</span>
-          <span className="traders">TRADERS</span>
-        </div>
+    <div className="star-dashboard">
 
-        <div className="nav-actions">
-          <span>◉ EN</span>
-          <span>◉ Support</span>
-          <button className="login-btn" onClick={login}>
-            Login Now →
-          </button>
-        </div>
-      </nav>
+      {/* =========================================================
+          TOP UTILITY BAR
+      ========================================================= */}
 
-      <div className="market-strip">
-        <span className="strip-arrow">‹</span>
-        <div className="strip-viewport">
-          <div className="strip-track">
-            {Array.from({ length: 6 }).flatMap(() => MARKET_TABS).map((label, i) => (
-              <b key={`${label}-${i}`} className={i % MARKET_TABS.length < 2 ? 'orange' : ''}>
-                {label} ---
-              </b>
-            ))}
-          </div>
+      <UtilityBar />
+
+      {/* =========================================================
+          MAIN NAVIGATION
+      ========================================================= */}
+
+      <TabNav />
+
+      {/* =========================================================
+          MOVING MARKET TICKER
+      ========================================================= */}
+
+      <div className="market-ticker">
+        <div className="market-ticker-track">
+          {[...markets, ...markets].map((market, index) => (
+            <div
+              className="market-ticker-item"
+              key={`${market.name}-${index}`}
+            >
+              <span className="ticker-name">
+                {market.name}
+              </span>
+
+              <strong className="ticker-price">
+                {market.price.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </strong>
+
+              <span
+                className={
+                  market.change >= 0
+                    ? 'ticker-change positive'
+                    : 'ticker-change negative'
+                }
+              >
+                {market.change >= 0 ? '+' : ''}
+                {market.change.toFixed(2)}%
+              </span>
+            </div>
+          ))}
         </div>
-        <span className="strip-arrow">›</span>
       </div>
 
-      <section className="hero">
-        <div className="hero-bg" aria-hidden="true" />
+      {/* =========================================================
+          DASHBOARD CONTENT
+      ========================================================= */}
 
-        <div className="trust-pill-outline">
-          ⚡ Trusted by 50,000+ Traders Worldwide ⭐
-        </div>
+      <main className="dashboard-content">
 
-        <div className="hero-headline">
-          {headline}
-          <span className="cursor">|</span>
-        </div>
+        {/* =======================================================
+            WELCOME / TRADING TERMINAL
+        ======================================================= */}
 
-        <div className="hero-sub">
-          Automated Trading. <span>Greater Possibilities.</span>
-        </div>
+        <section className="dashboard-hero">
 
-        <p className="hero-copy">
-          We don&apos;t just teach trading — we build traders. AI bots, copy
-          trading, and real-time signals in one hub.
-        </p>
+          <div className="hero-grid"></div>
 
-        <div className="hero-cta-row">
-          <button className="btn-cta-lg" onClick={login}>
-            Start Trading Now →
-          </button>
-          <button className="btn-cta-text" onClick={login}>
-            Don&apos;t have an account? <span>Create now</span>
-          </button>
-        </div>
+          <div className="hero-status">
+            <span
+              className={
+                isLoggedIn
+                  ? 'status-dot online'
+                  : 'status-dot'
+              }
+            ></span>
 
-        <div className="check-row">
-          <span>✓ No Credit Card Required</span>
-          <span>✓ $10,000 Virtual Account</span>
-        </div>
-
-        <div className="testimonial-grid">
-          <div className="t-card-v2">
-            <div className="t-avatar">RP</div>
-            <p className="quote">
-              &quot;Clean charting tools and reliable data exports. The risk
-              management settings give me real control over drawdown.&quot;
-            </p>
-            <div className="t-name">Raj Patel</div>
-            <div className="t-role">Quantitative Analyst</div>
-            <div className="t-stars">★★★★★</div>
+            {connectionText}
           </div>
 
-          <div className="t-card-v2">
-            <div className="t-avatar">EP</div>
-            <p className="quote">
-              &quot;Copying top-performing strategies gave my portfolio
-              steady growth without needing to watch charts all day.&quot;
+          <div className="hero-content">
+
+            <div className="eyebrow">
+              STARTRADERS / TRADING TERMINAL
+            </div>
+
+            <h1>
+              Hello {accountId}
+              <span className="hello-wave">👋</span>
+            </h1>
+
+            <p>
+              Your trading workspace for Deriv markets,
+              automated strategies, analysis and professional
+              trading tools.
             </p>
-            <div className="t-name">Elena Petrova</div>
-            <div className="t-role">Portfolio Manager</div>
-            <div className="t-stars">★★★★★</div>
+
           </div>
 
-          <div className="t-card-v2">
-            <div className="t-avatar">MG</div>
-            <p className="quote">
-              &quot;StarTraders transformed my trading. The automated bots
-              handle my strategies flawlessly, and the platform is
-              intuitive and powerful.&quot;
-            </p>
-            <div className="t-name">Mark Gonzales</div>
-            <div className="t-role">Professional Day Trader</div>
-            <div className="t-stars">★★★★★</div>
+        </section>
+
+        {/* =======================================================
+            ACCOUNT STATISTICS
+        ======================================================= */}
+
+        <section className="dashboard-stats">
+
+          {/* Balance */}
+
+          <div className="stat-card balance-card">
+
+            <div className="stat-heading">
+              ACCOUNT BALANCE
+
+              <span className="live-pill">
+                LIVE
+              </span>
+            </div>
+
+            <div className="balance-value">
+              {balanceAmount} {currency}
+            </div>
+
+            <div className="stat-footer">
+
+              <span>
+                {activeAccount?.account_type === 'demo'
+                  ? 'Demo Account'
+                  : 'Real Account'}
+              </span>
+
+              <span className="account-id">
+                {accountId}
+              </span>
+
+            </div>
+
           </div>
 
-          <div className="t-card-v2">
-            <div className="t-avatar">KM</div>
-            <p className="quote">
-              &quot;Copy trading feature is incredible! I follow top
-              performers and my portfolio has grown steadily. The
-              transparency and control are unmatched.&quot;
-            </p>
-            <div className="t-name">Kelvin Maxwell</div>
-            <div className="t-role">Crypto Investor</div>
-            <div className="t-stars">★★★★★</div>
-          </div>
-        </div>
+          {/* Today's P/L */}
 
-        <div className="stats-circles" ref={statsRef}>
-          {STATS.map((s, i) => (
-            <div className="stat-circle" key={s.label}>
-              <div className="ring">
-                {s.prefix}
-                {statValues[i].toFixed(s.decimals)}
-                {s.suffix}
+          <div className="stat-card">
+
+            <div className="stat-heading">
+              TODAY'S P/L
+            </div>
+
+            <div className="stat-value positive-value">
+              +$0.00
+            </div>
+
+            <div className="stat-description">
+              No completed trades today
+            </div>
+
+          </div>
+
+          {/* Win rate */}
+
+          <div className="stat-card">
+
+            <div className="stat-heading">
+              WIN RATE
+            </div>
+
+            <div className="stat-value">
+              —
+            </div>
+
+            <div className="stat-description">
+              Based on recent trades
+            </div>
+
+          </div>
+
+          {/* Active bots */}
+
+          <div className="stat-card">
+
+            <div className="stat-heading">
+              ACTIVE BOTS
+            </div>
+
+            <div className="stat-value">
+              0
+            </div>
+
+            <div className="stat-description">
+              No strategies running
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* =======================================================
+            QUICK ACTIONS
+        ======================================================= */}
+
+        <section className="quick-actions-section">
+
+          <div className="section-header">
+
+            <div>
+              <div className="section-eyebrow">
+                QUICK ACTIONS
               </div>
-              <div className="label">{s.label}</div>
+
+              <h2>
+                Start Trading
+              </h2>
             </div>
-          ))}
-        </div>
-      </section>
 
-      <section className="home-section">
-        <div className="section-head">
-          <div className="tag">WHY STARTRADERS</div>
-          <h2>Why Choose StarTraders?</h2>
-          <p>
-            Join the platform that&apos;s redefining automated trading with
-            practical tools, analysis, and risk management in one workspace.
-          </p>
-        </div>
+          </div>
 
-        <div className="why-list">
-          {[
-            'Bank-grade security with encrypted sessions',
-            'Lightning-fast execution under 50ms',
-            'Virtual account for risk-free testing',
-            '24/7 customer support and trading resources',
-            'Multi-asset trading across forex, crypto, and indices',
-            'Mobile app for trading on the go',
-          ].map((text, i) => (
-            <div
-              className={i === 4 ? 'why-item featured' : 'why-item'}
-              key={text}
-            >
-              <span>✓</span>
-              {text}
+          <div className="quick-actions-grid">
+
+            {QUICK_ACTIONS.map((action) => {
+
+              const content = (
+                <>
+                  <div className={`quick-icon ${action.color}`}>
+                    {action.icon}
+                  </div>
+
+                  <div className="quick-arrow">
+                    →
+                  </div>
+
+                  <h3>
+                    {action.title}
+                  </h3>
+
+                  <p>
+                    {action.description}
+                  </p>
+
+                  <div className="quick-divider"></div>
+
+                  <span className="quick-open">
+                    Open →
+                  </span>
+                </>
+              );
+
+              if (action.href) {
+                return (
+                  <a
+                    href={action.href}
+                    className={`quick-card ${action.color}`}
+                    key={action.title}
+                  >
+                    {content}
+                  </a>
+                );
+              }
+
+              return (
+                <button
+                  className={`quick-card ${action.color}`}
+                  key={action.title}
+                  onClick={() =>
+                    alert(
+                      `${action.title} will be connected when this feature is built.`
+                    )
+                  }
+                >
+                  {content}
+                </button>
+              );
+            })}
+
+          </div>
+
+        </section>
+
+        {/* =======================================================
+            MARKET OVERVIEW
+        ======================================================= */}
+
+        <section className="market-overview">
+
+          <div className="section-header">
+
+            <div>
+
+              <div className="section-eyebrow">
+                MARKET OVERVIEW
+              </div>
+
+              <h2>
+                Deriv Markets
+              </h2>
+
             </div>
-          ))}
-        </div>
-      </section>
 
-      <section className="home-section">
-        <div className="section-head">
-          <div className="tag">FEATURED</div>
-          <h2>Powerful features for modern traders</h2>
-          <p>
-            Manual decisions, automated execution, copy trading, analysis,
-            and risk tools — designed to work together.
-          </p>
-        </div>
+            <div className="market-live">
+              <span></span>
+              MARKETS LIVE
+            </div>
 
-        <div className="feature-grid">
-          <div className="feature-card">
-            <div className="icon-box">▣</div>
-            <h3>AI-powered trading bots</h3>
-            <p>
-              Configure, test, and run trading strategies from one
-              streamlined workspace.
-            </p>
           </div>
 
-          <div className="feature-card pink">
-            <div className="icon-box">▥</div>
-            <h3>Real-time market analysis</h3>
-            <p>
-              Track markets, identify setups, and work with professional
-              charting tools.
-            </p>
+          <div className="market-layout">
+
+            {/* Market list */}
+
+            <div className="market-list">
+
+              {markets.map((market) => (
+
+                <button
+                  key={market.name}
+                  className={
+                    selectedMarket === market.name
+                      ? 'market-row selected'
+                      : 'market-row'
+                  }
+                  onClick={() =>
+                    setSelectedMarket(market.name)
+                  }
+                >
+
+                  <div>
+
+                    <strong>
+                      {market.name}
+                    </strong>
+
+                    <span>
+                      Synthetic Index
+                    </span>
+
+                  </div>
+
+                  <div className="market-number">
+
+                    <strong>
+                      {market.price.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </strong>
+
+                    <span
+                      className={
+                        market.change >= 0
+                          ? 'positive'
+                          : 'negative'
+                      }
+                    >
+                      {market.change >= 0 ? '+' : ''}
+                      {market.change.toFixed(2)}%
+                    </span>
+
+                  </div>
+
+                </button>
+
+              ))}
+
+            </div>
+
+            {/* Chart workspace */}
+
+            <div className="chart-workspace">
+
+              <div className="chart-header">
+
+                <div>
+
+                  <span>
+                    LIVE VIEW
+                  </span>
+
+                  <h3>
+                    {selectedMarket}
+                  </h3>
+
+                </div>
+
+                <button
+                  className={
+                    running
+                      ? 'run-control running'
+                      : 'run-control'
+                  }
+                  onClick={() =>
+                    setRunning((value) => !value)
+                  }
+                >
+
+                  <span>
+                    {running ? '■' : '▶'}
+                  </span>
+
+                  {running ? 'RUNNING' : 'RUN'}
+
+                </button>
+
+              </div>
+
+              <div className="chart-placeholder">
+
+                <div className="chart-grid"></div>
+
+                <div className="candles">
+
+                  <span className="candle up"></span>
+                  <span className="candle down"></span>
+                  <span className="candle up"></span>
+                  <span className="candle up"></span>
+                  <span className="candle down"></span>
+                  <span className="candle up"></span>
+                  <span className="candle down"></span>
+                  <span className="candle up"></span>
+                  <span className="candle up"></span>
+                  <span className="candle down"></span>
+
+                </div>
+
+                <div className="chart-message">
+                  {selectedMarket} live trading workspace
+                </div>
+
+              </div>
+
+            </div>
+
           </div>
 
-          <div className="feature-card">
-            <div className="icon-box">↻</div>
-            <h3>Copy trading network</h3>
-            <p>
-              Follow verified performers while maintaining control of your
-              own trading decisions.
-            </p>
-          </div>
+        </section>
 
-          <div className="feature-card pink">
-            <div className="icon-box">◇</div>
-            <h3>Risk management tools</h3>
-            <p>
-              Build discipline with position sizing, limits, and drawdown
-              awareness.
-            </p>
-          </div>
-        </div>
-      </section>
+      </main>
 
-      <section className="cta-banner">
-        <div className="cta-globe" aria-hidden="true" />
-        <div className="cta-arc" aria-hidden="true" />
-        <div className="tag">GET STARTED</div>
-        <h2>Ready to Transform Your Trading?</h2>
-        <p>
-          Join 50,000+ traders who are already profiting with StarTraders.
-          Start with a free virtual account today.
-        </p>
-        <button className="btn-cta-lg" onClick={login}>
-          Start Free Trial →
+      {/* =========================================================
+          RISK DISCLAIMER
+          Compact floating access; details stay out of the main layout.
+      ========================================================= */}
+
+      {riskOpen && (
+        <section
+          id="risk-disclaimer"
+          className="risk-disclaimer-section"
+          aria-labelledby="risk-disclaimer-heading"
+        >
+          <div className="risk-disclaimer-card">
+            <div className="risk-disclaimer-header">
+              <div className="risk-disclaimer-icon" aria-hidden="true">!</div>
+              <div>
+                <div className="risk-label">IMPORTANT</div>
+                <h2 id="risk-disclaimer-heading">Risk Disclaimer</h2>
+              </div>
+              <button
+                type="button"
+                className="risk-close"
+                onClick={() => setRiskOpen(false)}
+                aria-label="Close risk disclaimer"
+              >
+                ×
+              </button>
+            </div>
+
+            <p className="risk-intro">
+              Trading financial products involves significant risk. Please understand the risks before trading.
+            </p>
+
+            <ul className="risk-list">
+              <li>You may lose some or all of the funds you trade.</li>
+              <li>Past performance and strategies do not guarantee future results.</li>
+              <li>Leverage can increase both potential profits and potential losses.</li>
+              <li>Only trade with money you can afford to lose.</li>
+            </ul>
+          </div>
+        </section>
+      )}
+
+      <button
+        type="button"
+        className={riskOpen ? 'floating-risk-button open' : 'floating-risk-button'}
+        onClick={() => setRiskOpen((value) => !value)}
+        aria-expanded={riskOpen}
+        aria-controls="risk-disclaimer"
+      >
+        <span className="floating-risk-symbol">!</span>
+        <span>Risk Disclaimer</span>
+      </button>
+
+      {/* =========================================================
+          AI BUTTON
+      ========================================================= */}
+
+      <AiFab />
+
+      {/* =========================================================
+          BOTTOM TRADING BAR
+          DBTraders-style fixed control, responsive on phone/tablet.
+      ========================================================= */}
+
+      <div className="bottom-trading-bar">
+        <button
+          type="button"
+          className={running ? 'bottom-run-button running' : 'bottom-run-button'}
+          onClick={() => setRunning((value) => !value)}
+        >
+          <span className="bottom-run-icon">{running ? '■' : '▶'}</span>
+          <span>{running ? 'STOP' : 'RUN'}</span>
         </button>
-        <div className="check-row">
-          <span>✓ No Credit Card</span>
-          <span>✓ $10K Virtual Money</span>
-          <span>✓ Full Platform Access</span>
+
+        <div className="bottom-speed-control">
+          <span className="bottom-speed-label">Execution Speed</span>
+          <strong>NORMAL SPEED</strong>
+          <span className="speed-indicator" aria-hidden="true"></span>
         </div>
-      </section>
 
-      <RiskDisclaimer />
+        <span className="bottom-workspace-label">
+          StarTraders trading workspace
+        </span>
+      </div>
 
-      <footer>
-        Trading involves risk. Please trade responsibly and only trade with
-        funds you can afford to lose.
-      </footer>
     </div>
   );
 }
