@@ -8,14 +8,16 @@ import LoadingScreen from '@/components/LoadingScreen';
 const SCAN_MESSAGES = [
   'Setting up your trading session...',
   'Connecting to markets...',
-  'Loading your dashboard...',
+  'Empowering your trading journey...',
   'Almost ready...',
 ];
 
 const HEADLINE_PHRASES = [
+  'Welcome to Startraders',
   'Simplify your market',
+  'Empowering your trading journey',
   'AI bots that trade while you sleep',
-  'Copy top traders in real time',
+  'top trades happening in real time',
   'Your ultimate partner in trading success',
 ];
 
