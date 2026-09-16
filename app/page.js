@@ -12,12 +12,14 @@ const SCAN_MESSAGES = [
   'Connecting to the markets...',
   'Empowering your financial journey...',
   'Optimizing Ai bots...',
+  'If the loading is taking too long, kindly refresh and try Again',
   'Almost ready...',
 ];
 
 const HEADLINE_PHRASES = [
   'Welcome to Startraders',
-  'Simplify your market',
+  'Simply best market Analysis',
+   'Trade with Best Structure',
   'Empowering your trading journey',
   'AI bots that trade while you sleep',
   'top trades happening in real time',
