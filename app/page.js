@@ -18,7 +18,7 @@ const SCAN_MESSAGES = [
 
 const HEADLINE_PHRASES = [
   'Welcome to Startraders',
-  'Simply best market Analysis',
+  'Simply your best market Analysis',
    'Trade with Best Structure',
   'Empowering your trading journey',
   'AI bots that trade while you sleep',
