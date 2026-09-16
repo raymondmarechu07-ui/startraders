@@ -7,8 +7,11 @@ import LoadingScreen from '@/components/LoadingScreen';
 
 const SCAN_MESSAGES = [
   'Setting up your trading session...',
-  'Connecting to markets...',
-  'Empowering your trading journey...',
+  'Scanning Trade signals',
+  'Initializing Speed Bot',
+  'Connecting to the markets...',
+  'Empowering your financial journey...',
+  'Optimizing Ai bots...',
   'Almost ready...',
 ];
 
