@@ -865,7 +865,3 @@ export function useDeriv() {
 
   return ctx;
 }
-  const value = { accounts, activeAccount, balance, balances, status, error, isLoggedIn: accounts.length > 0, login, logout, switchAccount: setActiveAccountId, refreshAccounts: loadAccounts, websocket: wsRef.current };
-  return <DerivContext.Provider value={value}>{children}</DerivContext.Provider>;
-}
-export function useDeriv() { const ctx = useContext(DerivContext); if (!ctx) throw new Error('useDeriv must be used inside <DerivProvider>'); return ctx; }
