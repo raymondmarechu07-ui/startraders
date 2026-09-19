@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -24,25 +25,24 @@ export function DerivProvider({ children }) {
   const wsRef = useRef(null);
   const reqIdRef = useRef(1);
   const pendingRef = useRef(new Map());
-  const subscriptionsRef = useRef(new Map());
+  const tickSubscriptionsRef = useRef(new Map());
   const contractSubscriptionsRef = useRef(new Map());
-  const reconnectTimerRef = useRef(null);
   const mountedRef = useRef(true);
+  const connectingRef = useRef(null);
 
-  const nextReqId = useCallback(() => {
-    const id = reqIdRef.current;
-    reqIdRef.current += 1;
-    return id;
-  }, []);
+  const nextReqId = useCallback(() => reqIdRef.current++, []);
 
-  const clearPending = useCallback(() => {
-    pendingRef.current.forEach(({ reject, timer }) => {
-      if (timer) clearTimeout(timer);
-      reject(new Error('Deriv connection closed'));
-    });
+  const clearPending = useCallback(
+    (message = 'Deriv connection closed') => {
+      pendingRef.current.forEach(({ reject, timer }) => {
+        if (timer) clearTimeout(timer);
+        reject(new Error(message));
+      });
 
-    pendingRef.current.clear();
-  }, []);
+      pendingRef.current.clear();
+    },
+    []
+  );
 
   const sendRequest = useCallback(
     (payload, timeout = 15000) => {
@@ -50,7 +50,11 @@ export function DerivProvider({ children }) {
         const ws = wsRef.current;
 
         if (!ws || ws.readyState !== WebSocket.OPEN) {
-          reject(new Error('Deriv WebSocket is not connected'));
+          reject(
+            new Error(
+              'Deriv WebSocket is not connected'
+            )
+          );
           return;
         }
 
@@ -58,6 +62,7 @@ export function DerivProvider({ children }) {
 
         const timer = setTimeout(() => {
           pendingRef.current.delete(req_id);
+
           reject(
             new Error(
               `Deriv request timed out: ${
@@ -67,8 +72,8 @@ export function DerivProvider({ children }) {
                     ? 'buy'
                     : payload.sell
                       ? 'sell'
-                      : payload.proposal_open_contract
-                        ? 'proposal_open_contract'
+                      : payload.ticks
+                        ? 'ticks'
                         : 'request'
               }`
             )
@@ -82,7 +87,12 @@ export function DerivProvider({ children }) {
         });
 
         try {
-          ws.send(JSON.stringify({ ...payload, req_id }));
+          ws.send(
+            JSON.stringify({
+              ...payload,
+              req_id,
+            })
+          );
         } catch (err) {
           clearTimeout(timer);
           pendingRef.current.delete(req_id);
@@ -93,42 +103,9 @@ export function DerivProvider({ children }) {
     [nextReqId]
   );
 
-  const fetchBalanceFor = useCallback(async (accountId) => {
-    if (!accountId) return null;
-
-    try {
-      const response = await fetch('/api/otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          accountId,
-        }),
-        cache: 'no-store',
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.error?.message ||
-            data?.error ||
-            'Unable to obtain Deriv WebSocket OTP'
-        );
-      }
-
-      return data;
-    } catch (err) {
-      console.error('fetchBalanceFor error:', err);
-      throw err;
-    }
-  }, []);
-
   const loadAccounts = useCallback(async () => {
     try {
       const response = await fetch('/api/accounts', {
-        method: 'GET',
         cache: 'no-store',
       });
 
@@ -142,61 +119,120 @@ export function DerivProvider({ children }) {
         );
       }
 
-      const rawAccounts =
+      const raw =
         data?.accounts ||
         data?.data ||
         (Array.isArray(data) ? data : []);
 
-      const normalized = rawAccounts
-        .map((account) => ({
-          ...account,
-          id:
-            account.id ||
+      const normalized = raw
+        .map((account) => {
+          const id =
             account.account_id ||
+            account.id ||
             account.loginid ||
-            account.login_id,
-          loginid:
+            account.login_id;
+
+          const loginid =
             account.loginid ||
             account.login_id ||
-            account.id ||
-            account.account_id,
-          currency: account.currency || 'USD',
-        }))
-        .filter((account) => account.id || account.loginid);
+            id;
+
+          const inferredType =
+            account.account_type ||
+            (String(loginid || '').startsWith('VRTC')
+              ? 'demo'
+              : 'real');
+
+          return {
+            ...account,
+            id,
+            account_id:
+              account.account_id || id,
+            loginid,
+            account_type: inferredType,
+            currency:
+              account.currency || 'USD',
+          };
+        })
+        .filter(
+          (account) =>
+            account.id || account.loginid
+        );
 
       if (mountedRef.current) {
         setAccounts(normalized);
 
         setActiveAccountId((current) => {
-          if (current && normalized.some((a) => a.id === current)) {
+          if (
+            current &&
+            normalized.some(
+              (account) =>
+                account.id === current
+            )
+          ) {
             return current;
           }
 
-          return normalized[0]?.id || normalized[0]?.loginid || null;
+          return (
+            normalized[0]?.id || null
+          );
         });
       }
 
       return normalized;
     } catch (err) {
-      console.error('loadAccounts error:', err);
-
       if (mountedRef.current) {
-        setError(err.message || 'Unable to load accounts');
+        setError(
+          err.message ||
+            'Unable to load Deriv accounts'
+        );
       }
 
       return [];
     }
   }, []);
 
-  const disconnect = useCallback(() => {
-    if (reconnectTimerRef.current) {
-      clearTimeout(reconnectTimerRef.current);
-      reconnectTimerRef.current = null;
+  const fetchOtp = useCallback(async (accountId) => {
+    const response = await fetch('/api/otp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        accountId,
+      }),
+      cache: 'no-store',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error?.message ||
+          data?.error ||
+          'Unable to obtain Deriv WebSocket OTP'
+      );
     }
 
+    const wsUrl =
+      data?.url ||
+      data?.ws_url ||
+      data?.websocket_url;
+
+    if (!wsUrl) {
+      throw new Error(
+        'Deriv did not return an authenticated WebSocket URL'
+      );
+    }
+
+    return wsUrl;
+  }, []);
+
+  const disconnect = useCallback(() => {
     clearPending();
 
     const ws = wsRef.current;
+    wsRef.current = null;
 
     if (ws) {
       try {
@@ -205,14 +241,10 @@ export function DerivProvider({ children }) {
         ws.onerror = null;
         ws.onclose = null;
         ws.close();
-      } catch {
-        // Ignore close errors.
-      }
+      } catch {}
     }
 
-    wsRef.current = null;
-
-    subscriptionsRef.current.clear();
+    tickSubscriptionsRef.current.clear();
     contractSubscriptionsRef.current.clear();
 
     if (mountedRef.current) {
@@ -223,15 +255,24 @@ export function DerivProvider({ children }) {
   const connect = useCallback(
     async (accountId = activeAccountId) => {
       if (!accountId) {
-        throw new Error('No Deriv account selected');
+        throw new Error(
+          'No Deriv account selected'
+        );
       }
 
       if (
-        wsRef.current &&
-        wsRef.current.readyState === WebSocket.OPEN &&
+        wsRef.current?.readyState ===
+          WebSocket.OPEN &&
         activeAccountId === accountId
       ) {
         return wsRef.current;
+      }
+
+      if (
+        connectingRef.current?.accountId ===
+        accountId
+      ) {
+        return connectingRef.current.promise;
       }
 
       disconnect();
@@ -241,73 +282,55 @@ export function DerivProvider({ children }) {
         setError(null);
       }
 
-      try {
-        const otpData = await fetchBalanceFor(accountId);
+      let resolveConnecting;
+      let rejectConnecting;
 
-        const wsUrl =
-          otpData?.url ||
-          otpData?.ws_url ||
-          otpData?.websocket_url;
-
-        if (!wsUrl) {
-          throw new Error(
-            'Deriv did not return an authenticated WebSocket URL'
-          );
+      const promise = new Promise(
+        (resolve, reject) => {
+          resolveConnecting = resolve;
+          rejectConnecting = reject;
         }
+      );
+
+      connectingRef.current = {
+        accountId,
+        promise,
+      };
+
+      try {
+        const wsUrl =
+          await fetchOtp(accountId);
 
         const ws = new WebSocket(wsUrl);
 
         wsRef.current = ws;
 
-        await new Promise((resolve, reject) => {
-          let settled = false;
-
-          const timeout = setTimeout(() => {
-            if (!settled) {
-              settled = true;
-              reject(
-                new Error('Timed out connecting to Deriv WebSocket')
-              );
-            }
-          }, 15000);
-
-          ws.onopen = () => {
-            if (settled) return;
-
-            settled = true;
-            clearTimeout(timeout);
-            resolve();
-          };
-
-          ws.onerror = () => {
-            if (settled) return;
-
-            settled = true;
-            clearTimeout(timeout);
-            reject(
-              new Error('Deriv WebSocket connection failed')
-            );
-          };
-        });
-
         ws.onmessage = (event) => {
           let data;
 
           try {
-            data = JSON.parse(event.data);
+            data = JSON.parse(
+              event.data
+            );
           } catch {
             return;
           }
 
-          const reqId = data?.req_id;
+          const pending = data?.req_id
+            ? pendingRef.current.get(
+                data.req_id
+              )
+            : null;
 
-          if (reqId && pendingRef.current.has(reqId)) {
-            const pending = pendingRef.current.get(reqId);
-
-            pendingRef.current.delete(reqId);
+          if (pending) {
+            pendingRef.current.delete(
+              data.req_id
+            );
 
             if (pending.timer) {
-              clearTimeout(pending.timer);
+              clearTimeout(
+                pending.timer
+              );
             }
 
             if (data.error) {
@@ -323,87 +346,74 @@ export function DerivProvider({ children }) {
             }
           }
 
-          if (data.msg_type === 'balance') {
-            const balanceData = data.balance;
+          if (
+            data.msg_type === 'balance' &&
+            data.balance
+          ) {
+            const next = {
+              ...data.balance,
+              balance: Number(
+                data.balance.balance
+              ),
+            };
 
-            if (balanceData) {
-              const numericBalance = Number(
-                balanceData.balance
-              );
+            if (mountedRef.current) {
+              setBalance(next);
 
-              const currency =
-                balanceData.currency || 'USD';
-
-              if (mountedRef.current) {
-                setBalance({
-                  ...balanceData,
-                  balance: numericBalance,
-                });
-
-                setBalances((current) => ({
-                  ...current,
-                  [accountId]: {
-                    ...balanceData,
-                    balance: numericBalance,
-                  },
-                }));
-              }
-            }
-          }
-
-          if (data.msg_type === 'tick') {
-            const tick = data.tick;
-
-            if (tick?.symbol) {
-              if (mountedRef.current) {
-                setTicks((current) => ({
-                  ...current,
-                  [tick.symbol]: tick,
-                }));
-              }
-            }
-          }
-
-          if (data.msg_type === 'proposal') {
-            const proposal = data.proposal;
-
-            if (proposal?.id) {
-              const symbol =
-                proposal.underlying_symbol ||
-                proposal.symbol ||
-                proposal.echo_req?.underlying_symbol;
-
-              if (symbol && mountedRef.current) {
-                setTicks((current) => ({
-                  ...current,
-                  [`proposal:${symbol}`]: {
-                    ...proposal,
-                    msg_type: 'proposal',
-                  },
-                }));
-              }
+              setBalances((current) => ({
+                ...current,
+                [accountId]: next,
+              }));
             }
           }
 
           if (
-            data.msg_type === 'proposal_open_contract'
+            data.msg_type === 'tick' &&
+            data.tick?.symbol
+          ) {
+            const tick = data.tick;
+
+            if (mountedRef.current) {
+              setTicks((current) => ({
+                ...current,
+                [tick.symbol]: tick,
+              }));
+            }
+
+            const entry =
+              tickSubscriptionsRef.current.get(
+                tick.symbol
+              );
+
+            entry?.callbacks.forEach(
+              (callback) => {
+                try {
+                  callback(tick);
+                } catch (err) {
+                  console.error(
+                    'Tick callback error:',
+                    err
+                  );
+                }
+              }
+            );
+          }
+
+          if (
+            data.msg_type ===
+              'proposal_open_contract' &&
+            data.proposal_open_contract
           ) {
             const contract =
               data.proposal_open_contract;
 
-            if (!contract) return;
-
-            const contractId = String(
+            const id = String(
               contract.contract_id
             );
 
-            const subscription =
-              contractSubscriptionsRef.current.get(
-                contractId
-              );
-
-            if (subscription) {
-              subscription.forEach((callback) => {
+            contractSubscriptionsRef.current
+              .get(id)
+              ?.forEach((callback) => {
                 try {
                   callback(contract);
                 } catch (err) {
@@ -413,12 +423,14 @@ export function DerivProvider({ children }) {
                   );
                 }
               });
-            }
           }
 
-          if (data.msg_type === 'portfolio') {
+          if (
+            data.msg_type === 'portfolio'
+          ) {
             const contracts =
-              data?.portfolio?.contracts || [];
+              data.portfolio?.contracts ||
+              [];
 
             if (mountedRef.current) {
               setPortfolio(contracts);
@@ -426,24 +438,48 @@ export function DerivProvider({ children }) {
           }
         };
 
-        ws.onerror = (event) => {
-          console.error(
-            'Deriv WebSocket error:',
-            event
-          );
+        await new Promise(
+          (resolve, reject) => {
+            const timer =
+              setTimeout(() => {
+                reject(
+                  new Error(
+                    'Timed out connecting to Deriv WebSocket'
+                  )
+                );
+              }, 15000);
 
+            ws.onopen = () => {
+              clearTimeout(timer);
+              resolve();
+            };
+
+            ws.onerror = () => {
+              clearTimeout(timer);
+              reject(
+                new Error(
+                  'Deriv WebSocket connection failed'
+                )
+              );
+            };
+          }
+        );
+
+        ws.onerror = () => {
           if (mountedRef.current) {
             setStatus('error');
-            setError('Deriv WebSocket error');
+            setError(
+              'Deriv WebSocket error'
+            );
           }
         };
 
         ws.onclose = () => {
-          clearPending();
-
           if (wsRef.current === ws) {
             wsRef.current = null;
           }
+
+          clearPending();
 
           if (mountedRef.current) {
             setStatus('disconnected');
@@ -451,49 +487,40 @@ export function DerivProvider({ children }) {
         };
 
         if (mountedRef.current) {
+          setActiveAccountId(
+            accountId
+          );
+
           setStatus('connected');
-          setActiveAccountId(accountId);
           setError(null);
         }
 
-        // Balance stream.
-        try {
-          await sendRequest({
-            balance: 1,
-            subscribe: 1,
-          });
-        } catch (err) {
+        await sendRequest({
+          balance: 1,
+          subscribe: 1,
+        }).catch((err) => {
           console.warn(
             'Balance subscription failed:',
             err
           );
-        }
+        });
 
-        // Existing open contracts.
-        try {
-          const portfolioResponse =
-            await sendRequest({
-              portfolio: 1,
-            });
+        const portfolioResponse =
+          await sendRequest({
+            portfolio: 1,
+          }).catch(() => null);
 
-          const contracts =
-            portfolioResponse?.portfolio?.contracts ||
-            [];
-
-          if (mountedRef.current) {
-            setPortfolio(contracts);
-          }
-        } catch (err) {
-          console.warn(
-            'Portfolio request failed:',
-            err
+        if (mountedRef.current) {
+          setPortfolio(
+            portfolioResponse?.portfolio
+              ?.contracts || []
           );
         }
 
+        resolveConnecting(ws);
+
         return ws;
       } catch (err) {
-        console.error('Deriv connect error:', err);
-
         if (mountedRef.current) {
           setStatus('error');
           setError(
@@ -503,62 +530,157 @@ export function DerivProvider({ children }) {
         }
 
         disconnect();
+        rejectConnecting(err);
 
         throw err;
+      } finally {
+        if (
+          connectingRef.current
+            ?.accountId === accountId
+        ) {
+          connectingRef.current = null;
+        }
       }
     },
     [
       activeAccountId,
       disconnect,
-      fetchBalanceFor,
+      fetchOtp,
       sendRequest,
     ]
   );
 
   const subscribeTicks = useCallback(
-    async (symbol) => {
+    async (symbol, callback) => {
       if (!symbol) {
-        throw new Error('Symbol is required');
+        throw new Error(
+          'Symbol is required'
+        );
       }
 
-      const response = await sendRequest({
-        ticks: symbol,
-        subscribe: 1,
-      });
+      let entry =
+        tickSubscriptionsRef.current.get(
+          symbol
+        );
 
-      subscriptionsRef.current.set(
-        symbol,
-        response?.subscription?.id || true
-      );
+      if (!entry) {
+        const response =
+          await sendRequest({
+            ticks: symbol,
+            subscribe: 1,
+          });
 
-      if (response?.tick && mountedRef.current) {
-        setTicks((current) => ({
-          ...current,
-          [symbol]: response.tick,
-        }));
+        entry = {
+          subscriptionId:
+            response?.subscription?.id ||
+            null,
+          callbacks: new Set(),
+        };
+
+        tickSubscriptionsRef.current.set(
+          symbol,
+          entry
+        );
+
+        if (
+          response?.tick &&
+          mountedRef.current
+        ) {
+          setTicks((current) => ({
+            ...current,
+            [symbol]: response.tick,
+          }));
+        }
       }
 
-      return response;
+      if (callback) {
+        entry.callbacks.add(callback);
+      }
+
+      return () =>
+        unsubscribeTicks(
+          symbol,
+          callback
+        );
     },
     [sendRequest]
   );
 
   const unsubscribeTicks = useCallback(
-    async (subscriptionId) => {
-      if (!subscriptionId) return;
+    async (symbol, callback) => {
+      if (!symbol) return;
 
-      return sendRequest({
-        forget: subscriptionId,
-      });
+      const entry =
+        tickSubscriptionsRef.current.get(
+          symbol
+        );
+
+      if (!entry) return;
+
+      if (callback) {
+        entry.callbacks.delete(
+          callback
+        );
+      }
+
+      if (
+        !callback ||
+        entry.callbacks.size === 0
+      ) {
+        if (entry.subscriptionId) {
+          await sendRequest({
+            forget:
+              entry.subscriptionId,
+          }).catch(() => {});
+        }
+
+        tickSubscriptionsRef.current.delete(
+          symbol
+        );
+      }
     },
     [sendRequest]
   );
 
   const getActiveSymbols = useCallback(
-    async (market = 'synthetic_index') => {
-      return sendRequest({
-        active_symbols: 'brief',
-        product_type: 'basic',
+    async (
+      market = 'synthetic_index'
+    ) => {
+      const response =
+        await sendRequest({
+          active_symbols: 'brief',
+          product_type: 'basic',
+        });
+
+      const symbols =
+        response?.active_symbols ||
+        response?.symbols ||
+        [];
+
+      if (
+        market !==
+        'synthetic_index'
+      ) {
+        return symbols;
+      }
+
+      return symbols.filter((item) => {
+        const text =
+          `${item.market || ''} ` +
+          `${item.market_display_name || ''} ` +
+          `${item.submarket || ''}`
+            .toLowerCase();
+
+        const symbol =
+          String(
+            item.symbol || ''
+          ).toLowerCase();
+
+        return (
+          text.includes('synthetic') ||
+          symbol.includes('r_') ||
+          symbol.includes('1hz')
+        );
       });
     },
     [sendRequest]
@@ -566,44 +688,26 @@ export function DerivProvider({ children }) {
 
   const requestProposal = useCallback(
     async (params) => {
-      if (!params) {
-        throw new Error(
-          'Proposal parameters are required'
-        );
-      }
-
-      const {
-        amount,
-        basis = 'stake',
-        contract_type,
-        currency,
-        duration,
-        duration_unit,
-        symbol,
-        underlying_symbol,
-        barrier,
-        barrier2,
-        multiplier,
-        limit_order,
-        passthrough,
-      } = params;
-
-      if (!amount) {
+      if (
+        !params?.amount ||
+        Number(params.amount) <= 0
+      ) {
         throw new Error(
           'Trade amount is required'
         );
       }
 
-      if (!contract_type) {
+      if (!params.contract_type) {
         throw new Error(
           'Contract type is required'
         );
       }
 
-      const actualSymbol =
-        underlying_symbol || symbol;
+      const symbol =
+        params.underlying_symbol ||
+        params.symbol;
 
-      if (!actualSymbol) {
+      if (!symbol) {
         throw new Error(
           'Trading symbol is required'
         );
@@ -611,98 +715,114 @@ export function DerivProvider({ children }) {
 
       const payload = {
         proposal: 1,
-        amount: Number(amount),
-        basis,
-        contract_type,
-        currency: currency || balance?.currency || 'USD',
-        underlying_symbol: actualSymbol,
+        amount: Number(
+          params.amount
+        ),
+        basis:
+          params.basis || 'stake',
+        contract_type:
+          params.contract_type,
+        currency:
+          params.currency ||
+          balance?.currency ||
+          'USD',
+        underlying_symbol: symbol,
         subscribe: 1,
       };
 
-      if (
-        duration !== undefined &&
-        duration !== null
-      ) {
-        payload.duration = Number(duration);
+      if (params.duration != null) {
+        payload.duration =
+          Number(params.duration);
       }
 
-      if (duration_unit) {
-        payload.duration_unit = duration_unit;
-      }
-
-      if (
-        barrier !== undefined &&
-        barrier !== null &&
-        barrier !== ''
-      ) {
-        payload.barrier = String(barrier);
+      if (params.duration_unit) {
+        payload.duration_unit =
+          params.duration_unit;
       }
 
       if (
-        barrier2 !== undefined &&
-        barrier2 !== null &&
-        barrier2 !== ''
+        params.barrier != null &&
+        params.barrier !== ''
       ) {
-        payload.barrier2 = String(barrier2);
+        payload.barrier =
+          String(params.barrier);
       }
 
       if (
-        multiplier !== undefined &&
-        multiplier !== null
+        params.barrier2 != null &&
+        params.barrier2 !== ''
       ) {
-        payload.multiplier = Number(multiplier);
+        payload.barrier2 =
+          String(params.barrier2);
       }
 
-      if (limit_order) {
-        payload.limit_order = limit_order;
+      if (params.multiplier != null) {
+        payload.multiplier =
+          Number(params.multiplier);
       }
 
-      if (passthrough) {
-        payload.passthrough = passthrough;
+      if (params.limit_order) {
+        payload.limit_order =
+          params.limit_order;
       }
 
-      const response = await sendRequest(
-        payload,
-        15000
-      );
+      const response =
+        await sendRequest(
+          payload,
+          15000
+        );
 
-      if (response?.proposal?.id) {
-        return response;
+      if (!response?.proposal?.id) {
+        throw new Error(
+          response?.error?.message ||
+            'Deriv did not return a valid proposal'
+        );
       }
 
-      throw new Error(
-        response?.error?.message ||
-          'Deriv did not return a valid proposal'
-      );
+      return response.proposal;
     },
-    [balance?.currency, sendRequest]
+    [
+      balance?.currency,
+      sendRequest,
+    ]
   );
 
   const buyContract = useCallback(
-    async (proposalId, price) => {
+    async (
+      proposalId,
+      price
+    ) => {
       if (!proposalId) {
         throw new Error(
           'Proposal ID is required to buy'
         );
       }
 
+      const purchasePrice =
+        Number(price);
+
       if (
-        price === undefined ||
-        price === null ||
-        Number(price) <= 0
+        !Number.isFinite(
+          purchasePrice
+        ) ||
+        purchasePrice <= 0
       ) {
         throw new Error(
           'A valid proposal price is required'
         );
       }
 
-      const response = await sendRequest(
-        {
-          buy: String(proposalId),
-          price: Number(price),
-        },
-        20000
-      );
+      const response =
+        await sendRequest(
+          {
+            buy: String(
+              proposalId
+            ),
+            price:
+              purchasePrice,
+          },
+          20000
+        );
 
       if (!response?.buy?.contract_id) {
         throw new Error(
@@ -711,124 +831,165 @@ export function DerivProvider({ children }) {
         );
       }
 
-      const contractId = String(
-        response.buy.contract_id
-      );
-
-      // Immediately subscribe to the real contract.
-      await subscribeContract(contractId);
-
-      return response;
+      return response.buy;
     },
     [sendRequest]
   );
 
-  const subscribeContract = useCallback(
-    async (contractId, callback) => {
-      if (!contractId) {
-        throw new Error(
-          'Contract ID is required'
-        );
-      }
-
-      const id = String(contractId);
-
-      if (callback) {
-        if (
-          !contractSubscriptionsRef.current.has(id)
-        ) {
-          contractSubscriptionsRef.current.set(
-            id,
-            new Set()
+  const subscribeContract =
+    useCallback(
+      async (
+        contractId,
+        callback
+      ) => {
+        if (!contractId) {
+          throw new Error(
+            'Contract ID is required'
           );
         }
 
-        contractSubscriptionsRef.current
-          .get(id)
-          .add(callback);
-      }
+        const id =
+          String(contractId);
 
-      const response = await sendRequest({
-        proposal_open_contract: 1,
-        contract_id: Number(id),
-        subscribe: 1,
-      });
+        if (callback) {
+          let callbacks =
+            contractSubscriptionsRef.current.get(
+              id
+            );
 
-      if (
-        response?.proposal_open_contract &&
-        callback
-      ) {
-        callback(
-          response.proposal_open_contract
+          if (!callbacks) {
+            callbacks = new Set();
+
+            contractSubscriptionsRef.current.set(
+              id,
+              callbacks
+            );
+          }
+
+          callbacks.add(callback);
+        }
+
+        const response =
+          await sendRequest(
+            {
+              proposal_open_contract: 1,
+              contract_id:
+                Number(id),
+              subscribe: 1,
+            },
+            15000
+          );
+
+        if (
+          response?.proposal_open_contract &&
+          callback
+        ) {
+          callback(
+            response.proposal_open_contract
+          );
+        }
+
+        return (
+          response?.proposal_open_contract ||
+          null
         );
-      }
+      },
+      [sendRequest]
+    );
 
-      return response;
-    },
-    [sendRequest]
-  );
+  const unsubscribeContract =
+    useCallback(
+      async (
+        contractId,
+        callback
+      ) => {
+        const id =
+          String(
+            contractId || ''
+          );
 
-  const unsubscribeContract = useCallback(
-    async (contractId, callback) => {
-      if (!contractId) return;
+        if (!id) return;
 
-      const id = String(contractId);
-      const callbacks =
-        contractSubscriptionsRef.current.get(id);
+        const callbacks =
+          contractSubscriptionsRef.current.get(
+            id
+          );
 
-      if (callbacks && callback) {
-        callbacks.delete(callback);
-      }
+        if (!callbacks) return;
 
-      if (
-        callbacks &&
-        callbacks.size === 0
-      ) {
-        contractSubscriptionsRef.current.delete(id);
-      }
+        if (callback) {
+          callbacks.delete(
+            callback
+          );
+        }
 
-      return true;
-    },
-    []
-  );
+        if (
+          !callback ||
+          callbacks.size === 0
+        ) {
+          contractSubscriptionsRef.current.delete(
+            id
+          );
+        }
+      },
+      []
+    );
 
   const sellContract = useCallback(
-    async (contractId, bidPrice = null) => {
+    async (
+      contractId,
+      bidPrice = null
+    ) => {
       if (!contractId) {
         throw new Error(
           'Contract ID is required to sell'
         );
       }
 
-      let price = Number(bidPrice);
+      let price =
+        Number(bidPrice);
 
-      // If the UI did not supply bid_price, ask Deriv
-      // for the latest open-contract state first.
-      if (!Number.isFinite(price) || price < 0) {
+      if (
+        !Number.isFinite(price) ||
+        price < 0
+      ) {
         const latest =
-          await sendRequest({
-            proposal_open_contract: 1,
-            contract_id: Number(contractId),
-          });
+          await sendRequest(
+            {
+              proposal_open_contract: 1,
+              contract_id:
+                Number(contractId),
+            },
+            15000
+          );
 
-        price = Number(
-          latest?.proposal_open_contract?.bid_price
-        );
+        price =
+          Number(
+            latest
+              ?.proposal_open_contract
+              ?.bid_price
+          );
       }
 
-      if (!Number.isFinite(price) || price < 0) {
+      if (
+        !Number.isFinite(price) ||
+        price < 0
+      ) {
         throw new Error(
           'Deriv did not provide a valid sell price'
         );
       }
 
-      const response = await sendRequest(
-        {
-          sell: String(contractId),
-          price,
-        },
-        20000
-      );
+      const response =
+        await sendRequest(
+          {
+            sell: String(
+              contractId
+            ),
+            price,
+          },
+          20000
+        );
 
       if (!response?.sell) {
         throw new Error(
@@ -837,125 +998,225 @@ export function DerivProvider({ children }) {
         );
       }
 
-      return response;
+      return response.sell;
     },
     [sendRequest]
   );
 
-  const getPortfolio = useCallback(async () => {
-    const response = await sendRequest({
-      portfolio: 1,
-    });
+  const getPortfolio = useCallback(
+    async () => {
+      const response =
+        await sendRequest({
+          portfolio: 1,
+        });
 
-    const contracts =
-      response?.portfolio?.contracts || [];
+      const contracts =
+        response?.portfolio
+          ?.contracts || [];
 
-    if (mountedRef.current) {
-      setPortfolio(contracts);
-    }
-
-    return response;
-  }, [sendRequest]);
-
-  const getProfitHistory = useCallback(
-    async (limit = 50) => {
-      return sendRequest({
-        profit_table: 1,
-        description: 1,
-        limit: Number(limit),
-      });
-    },
-    [sendRequest]
-  );
-
-  const refreshBalance = useCallback(async () => {
-    const response = await sendRequest({
-      balance: 1,
-    });
-
-    if (response?.balance && mountedRef.current) {
-      const balanceData = response.balance;
-
-      setBalance(balanceData);
-
-      if (activeAccountId) {
-        setBalances((current) => ({
-          ...current,
-          [activeAccountId]: balanceData,
-        }));
-      }
-    }
-
-    return response;
-  }, [activeAccountId, sendRequest]);
-
-  const switchAccount = useCallback(
-    async (accountId) => {
-      if (!accountId) {
-        throw new Error(
-          'Account ID is required'
+      if (mountedRef.current) {
+        setPortfolio(
+          contracts
         );
       }
 
-      setActiveAccountId(accountId);
-
-      await connect(accountId);
-
-      return accountId;
+      return contracts;
     },
-    [connect]
+    [sendRequest]
   );
 
-  const refreshAccounts = useCallback(async () => {
-    return loadAccounts();
-  }, [loadAccounts]);
+  const getProfitHistory =
+    useCallback(
+      async (
+        options = {}
+      ) => {
+        const payload =
+          typeof options ===
+          'number'
+            ? {
+                profit_table: 1,
+                description: 1,
+                limit:
+                  Number(
+                    options
+                  ),
+              }
+            : {
+                profit_table: 1,
+                description: 1,
+                limit: 50,
+                ...options,
+              };
 
-  const login = useCallback(async () => {
-    window.location.href = '/api/auth/login';
-  }, []);
+        const response =
+          await sendRequest(
+            payload
+          );
 
-  const logout = useCallback(async () => {
-    disconnect();
+        return (
+          response?.profit_table || {
+            transactions: [],
+          }
+        );
+      },
+      [sendRequest]
+    );
 
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-      });
-    } catch (err) {
-      console.warn(
-        'Logout request failed:',
-        err
-      );
-    }
+  const refreshBalance =
+    useCallback(
+      async () => {
+        const response =
+          await sendRequest({
+            balance: 1,
+          });
 
-    if (mountedRef.current) {
-      setAccounts([]);
-      setActiveAccountId(null);
-      setBalance(null);
-      setBalances({});
-      setPortfolio([]);
-      setTicks({});
-      setError(null);
-      setStatus('disconnected');
-    }
+        if (
+          response?.balance &&
+          mountedRef.current
+        ) {
+          const next =
+            response.balance;
 
-    window.location.href = '/';
-  }, [disconnect]);
+          setBalance(next);
+
+          if (activeAccountId) {
+            setBalances(
+              (current) => ({
+                ...current,
+                [activeAccountId]:
+                  next,
+              })
+            );
+          }
+        }
+
+        return (
+          response?.balance ||
+          null
+        );
+      },
+      [
+        activeAccountId,
+        sendRequest,
+      ]
+    );
+
+  const switchAccount =
+    useCallback(
+      async (
+        accountId
+      ) => {
+        if (!accountId) {
+          throw new Error(
+            'Account ID is required'
+          );
+        }
+
+        setActiveAccountId(
+          accountId
+        );
+
+        await connect(
+          accountId
+        );
+
+        return accountId;
+      },
+      [connect]
+    );
+
+  const login =
+    useCallback(() => {
+      window.location.href =
+        '/api/auth/login';
+    }, []);
+
+  const logout =
+    useCallback(async () => {
+      disconnect();
+
+      try {
+        await fetch(
+          '/api/auth/logout',
+          {
+            method: 'POST',
+          }
+        );
+      } catch {}
+
+      if (mountedRef.current) {
+        setAccounts([]);
+        setActiveAccountId(null);
+        setBalance(null);
+        setBalances({});
+        setPortfolio([]);
+        setTicks({});
+        setError(null);
+        setStatus(
+          'disconnected'
+        );
+      }
+
+      window.location.href =
+        '/';
+    }, [disconnect]);
 
   useEffect(() => {
     mountedRef.current = true;
 
-    loadAccounts().catch(() => {});
+    loadAccounts().catch(
+      () => {}
+    );
 
     return () => {
       mountedRef.current = false;
       disconnect();
     };
-  }, [disconnect, loadAccounts]);
+  }, [
+    disconnect,
+    loadAccounts,
+  ]);
+
+  useEffect(() => {
+    if (!activeAccountId) {
+      return;
+    }
+
+    connect(
+      activeAccountId
+    ).catch(() => {});
+  }, [
+    activeAccountId,
+    connect,
+  ]);
+
+  const activeAccount =
+    useMemo(
+      () =>
+        accounts.find(
+          (account) =>
+            account.id ===
+              activeAccountId ||
+            account.account_id ===
+              activeAccountId ||
+            account.loginid ===
+              activeAccountId
+        ) || null,
+      [
+        accounts,
+        activeAccountId,
+      ]
+    );
+
+  const isLoggedIn =
+    Boolean(activeAccount);
 
   const value = {
     accounts,
     activeAccountId,
+    activeAccount,
+    isLoggedIn,
+
     balance,
     balances,
     status,
@@ -970,7 +1231,8 @@ export function DerivProvider({ children }) {
     logout,
 
     loadAccounts,
-    refreshAccounts,
+    refreshAccounts:
+      loadAccounts,
 
     switchAccount,
 
@@ -995,14 +1257,17 @@ export function DerivProvider({ children }) {
   };
 
   return (
-    <DerivContext.Provider value={value}>
+    <DerivContext.Provider
+      value={value}
+    >
       {children}
     </DerivContext.Provider>
   );
 }
 
 export function useDeriv() {
-  const context = useContext(DerivContext);
+  const context =
+    useContext(DerivContext);
 
   if (!context) {
     throw new Error(
