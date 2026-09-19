@@ -1,226 +1,154 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import UtilityBar from '@/components/UtilityBar';
 import TabNav from '@/components/TabNav';
 import { useDeriv } from '@/context/DerivProvider';
 
-const TIMEFRAMES = [
-  '1m',
-  '5m',
-  '15m',
-  '1H',
-  '4H',
-  '1D',
+const DURATIONS = [
+  { label: '5 ticks', duration: 5, duration_unit: 't' },
+  { label: '10 ticks', duration: 10, duration_unit: 't' },
+  { label: '1 minute', duration: 1, duration_unit: 'm' },
+  { label: '5 minutes', duration: 5, duration_unit: 'm' },
 ];
 
-const TRADE_TYPES = [
-  {
-    label: 'Rise/Fall',
-    icon: 'M18 15l-6-6-6 6',
-    enabled: true,
-  },
-  {
-    label: 'Higher/Lower',
-    icon: 'M12 3v18M6 9l6-6 6 6M6 15l6 6 6-6',
-    enabled: false,
-  },
-  {
-    label: 'Touch/No Touch',
-    icon: '',
-    dual: true,
-    enabled: false,
-  },
-  {
-    label: 'Matches/Differs',
-    icon: 'M3 3h7v7H3zM14 14h7v7h-7z',
-    enabled: false,
-  },
-  {
-    label: 'Even/Odd',
-    icon: 'M4 4h16v16H4zM4 12h16',
-    enabled: false,
-  },
-  {
-    label: 'Over/Under',
-    icon: 'M4 19V9M12 19V5M20 19v-7',
-    enabled: false,
-  },
-  {
-    label: 'Accumulators',
-    icon: 'M13 2L4 14h7l-1 8 9-12h-7l1-8z',
-    enabled: false,
-  },
-];
+function money(value, currency = 'USD') {
+  const n = Number(value);
 
-const INITIAL_POINTS = [];
-
-function formatMoney(value, currency = 'USD') {
-  const number = Number(value);
-
-  if (!Number.isFinite(number)) {
+  if (!Number.isFinite(n)) {
     return '—';
   }
 
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(number);
+  return new Intl.NumberFormat(
+    undefined,
+    {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }
+  ).format(n);
 }
 
-function formatNumber(value) {
-  const number = Number(value);
+function number(value) {
+  const n = Number(value);
 
-  if (!Number.isFinite(number)) {
+  if (!Number.isFinite(n)) {
     return '—';
   }
 
-  return number.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return n.toLocaleString(
+    undefined,
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }
+  );
 }
 
-function parseDuration(value) {
-  if (value === '5 ticks') {
-    return {
-      duration: 5,
-      duration_unit: 't',
-    };
-  }
-
-  if (value === '10 ticks') {
-    return {
-      duration: 10,
-      duration_unit: 't',
-    };
-  }
-
-  if (value === '1 minute') {
-    return {
-      duration: 1,
-      duration_unit: 'm',
-    };
-  }
-
-  if (value === '5 minutes') {
-    return {
-      duration: 5,
-      duration_unit: 'm',
-    };
-  }
-
-  return {
-    duration: 5,
-    duration_unit: 't',
-  };
+function errorText(error) {
+  return (
+    error?.message ||
+    (typeof error === 'string'
+      ? error
+      : 'Deriv rejected the request.')
+  );
 }
 
-function errorMessage(error) {
-  if (!error) return 'Unknown Deriv error.';
-
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  if (error.message) {
-    return error.message;
-  }
-
-  return 'Deriv rejected the request.';
-}
-
-function getContractStatus(contract) {
+function contractStatus(contract) {
   if (!contract) {
     return 'Unknown';
   }
 
   if (contract.is_sold) {
-    if (Number(contract.profit) > 0) {
-      return 'Won';
-    }
+    const profit =
+      Number(contract.profit);
 
-    if (Number(contract.profit) < 0) {
-      return 'Lost';
-    }
+    if (profit > 0) return 'Won';
+    if (profit < 0) return 'Lost';
 
     return 'Settled';
   }
 
-  return contract.status || 'Open';
+  return (
+    contract.status || 'Open'
+  );
 }
 
-function chartPointsFromPrices(prices) {
-  if (!prices.length) {
-    return INITIAL_POINTS;
-  }
+function findVol75(symbols) {
+  return symbols.find(
+    (item) => {
+      const display =
+        String(
+          item.display_name || ''
+        ).toLowerCase();
 
-  const width = 600;
-  const height = 220;
-  const padding = 15;
+      const symbol =
+        String(
+          item.symbol || ''
+        ).toLowerCase();
 
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
-
-  const range =
-    max - min === 0 ? 1 : max - min;
-
-  return prices.map((price, index) => {
-    const x =
-      prices.length === 1
-        ? width
-        : (index / (prices.length - 1)) * width;
-
-    const y =
-      height -
-      padding -
-      ((price - min) / range) *
-        (height - padding * 2);
-
-    return [
-      Math.round(x),
-      Math.round(y),
-    ];
-  });
+      return (
+        display.includes(
+          'volatility 75'
+        ) ||
+        display.includes(
+          'volatility 75 index'
+        ) ||
+        symbol === 'r_75' ||
+        symbol === '1hz75v'
+      );
+    }
+  );
 }
 
 export default function ManualTraderPage() {
   const {
     activeAccount,
+    isLoggedIn,
     balance,
     status,
     error: providerError,
+
+    getActiveSymbols,
     subscribeTicks,
     unsubscribeTicks,
-    getActiveSymbols,
+
     requestProposal,
     buyContract,
+
     subscribeContract,
+
     sellContract,
+
+    getPortfolio,
     getProfitHistory,
   } = useDeriv();
 
-  const [price, setPrice] = useState(null);
+  const [symbol, setSymbol] =
+    useState('');
+
+  const [marketName, setMarketName] =
+    useState(
+      'Volatility 75 Index'
+    );
+
+  const [price, setPrice] =
+    useState(null);
+
   const [previousPrice, setPreviousPrice] =
     useState(null);
-  const [priceUp, setPriceUp] =
-    useState(true);
-  const [points, setPoints] =
-    useState(INITIAL_POINTS);
-  const [rawPrices, setRawPrices] =
+
+  const [priceHistory, setPriceHistory] =
     useState([]);
 
-  const [symbol, setSymbol] = useState(null);
-  const [marketName, setMarketName] =
-    useState('Volatility 75 Index');
-
-  const [timeframe, setTimeframe] =
-    useState('1m');
-
-  const [tradeType, setTradeType] =
-    useState('Rise/Fall');
+  const [marketLoading, setMarketLoading] =
+    useState(true);
 
   const [duration, setDuration] =
     useState('5 ticks');
@@ -228,16 +156,10 @@ export default function ManualTraderPage() {
   const [stake, setStake] =
     useState(10);
 
-  const [positions, setPositions] =
-    useState([]);
-
-  const [history, setHistory] =
-    useState([]);
-
   const [proposal, setProposal] =
     useState(null);
 
-  const [proposalDirection, setProposalDirection] =
+  const [direction, setDirection] =
     useState(null);
 
   const [proposalLoading, setProposalLoading] =
@@ -246,50 +168,100 @@ export default function ManualTraderPage() {
   const [buyLoading, setBuyLoading] =
     useState(false);
 
+  const [realConfirmed, setRealConfirmed] =
+    useState(false);
+
+  const [positions, setPositions] =
+    useState([]);
+
+  const [history, setHistory] =
+    useState([]);
+
+  const [historyLoading, setHistoryLoading] =
+    useState(false);
+
   const [sellLoading, setSellLoading] =
     useState({});
 
+  const [message, setMessage] =
+    useState('');
+
   const [tradeError, setTradeError] =
     useState('');
-
-  const [marketLoading, setMarketLoading] =
-    useState(true);
-
-  const [historyLoading, setHistoryLoading] =
-    useState(true);
-
-  const [realAccountConfirmed, setRealAccountConfirmed] =
-    useState(false);
-
-  const [statusMessage, setStatusMessage] =
-    useState('');
-
-  const accountBalance = Number(
-    balance?.balance ??
-      balance?.amount ??
-      0
-  );
 
   const currency =
     balance?.currency ||
     activeAccount?.currency ||
     'USD';
 
-  const isConnected =
+  const accountBalance =
+    Number(
+      balance?.balance ?? 0
+    );
+
+  const connected =
     status === 'connected';
 
-  const isRealAccount =
-    activeAccount?.account_type === 'real';
+  const realAccount =
+    activeAccount?.account_type ===
+    'real';
 
-  /*
-   * Find the real currently-active Volatility 75 symbol
-   * instead of inventing or simulating a symbol.
-   */
+  const chart =
+    useMemo(() => {
+      if (
+        priceHistory.length < 2
+      ) {
+        return '';
+      }
+
+      const width = 700;
+      const height = 220;
+      const padding = 12;
+
+      const min =
+        Math.min(
+          ...priceHistory
+        );
+
+      const max =
+        Math.max(
+          ...priceHistory
+        );
+
+      const range =
+        max - min || 1;
+
+      return priceHistory
+        .map(
+          (value, index) => {
+            const x =
+              (index /
+                (priceHistory.length -
+                  1)) *
+              width;
+
+            const y =
+              height -
+              padding -
+              ((value - min) /
+                range) *
+                (height -
+                  padding * 2);
+
+            return `${x.toFixed(
+              1
+            )},${y.toFixed(1)}`;
+          }
+        )
+        .join(' ');
+    }, [priceHistory]);
+
   useEffect(() => {
     let cancelled = false;
 
     async function loadMarket() {
-      if (!isConnected) {
+      if (!connected) {
+        setMarketLoading(false);
         return;
       }
 
@@ -298,52 +270,33 @@ export default function ManualTraderPage() {
 
       try {
         const symbols =
-          await getActiveSymbols();
+          await getActiveSymbols(
+            'synthetic_index'
+          );
 
-        if (cancelled) return;
+        const market =
+          findVol75(symbols);
 
-        const volatility75 =
-          symbols.find((item) => {
-            const display =
-              String(
-                item.display_name || ''
-              ).toLowerCase();
-
-            const symbol =
-              String(
-                item.symbol || ''
-              ).toLowerCase();
-
-            return (
-              display.includes(
-                'volatility 75'
-              ) ||
-              display.includes(
-                'volatility 75 index'
-              ) ||
-              symbol === 'r_75' ||
-              symbol === '1hz75v'
-            );
-          });
-
-        if (!volatility75?.symbol) {
+        if (!market?.symbol) {
           throw new Error(
-            'Deriv did not return an active Volatility 75 market.'
+            'Volatility 75 is not currently available from Deriv.'
           );
         }
 
-        setSymbol(
-          volatility75.symbol
-        );
+        if (!cancelled) {
+          setSymbol(
+            market.symbol
+          );
 
-        setMarketName(
-          volatility75.display_name ||
-            'Volatility 75 Index'
-        );
-      } catch (err) {
+          setMarketName(
+            market.display_name ||
+              'Volatility 75 Index'
+          );
+        }
+      } catch (error) {
         if (!cancelled) {
           setTradeError(
-            errorMessage(err)
+            errorText(error)
           );
         }
       } finally {
@@ -358,115 +311,120 @@ export default function ManualTraderPage() {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, getActiveSymbols]);
+  }, [
+    connected,
+    getActiveSymbols,
+  ]);
 
-  /*
-   * Subscribe to the REAL tick stream.
-   */
   useEffect(() => {
-    if (!isConnected || !symbol) {
+    if (
+      !connected ||
+      !symbol
+    ) {
       return undefined;
     }
 
     let cancelled = false;
+    let cleanup = null;
 
-    setPrice(null);
-    setPreviousPrice(null);
-    setRawPrices([]);
-    setPoints(INITIAL_POINTS);
-
-    async function connectTicks() {
+    async function startTicks() {
       try {
-        await subscribeTicks(
-          symbol,
-          (tick) => {
-            if (cancelled) return;
-
-            const quote = Number(
-              tick?.quote
-            );
-
-            if (!Number.isFinite(quote)) {
-              return;
-            }
-
-            setPrice((current) => {
-              if (
-                current !== null &&
-                Number.isFinite(current)
-              ) {
-                setPreviousPrice(
-                  current
-                );
-
-                setPriceUp(
-                  quote >= current
-                );
+        cleanup =
+          await subscribeTicks(
+            symbol,
+            (tick) => {
+              if (cancelled) {
+                return;
               }
 
-              return quote;
-            });
+              const quote =
+                Number(
+                  tick?.quote
+                );
 
-            setRawPrices((current) => {
-              const next = [
-                ...current,
-                quote,
-              ].slice(-40);
-
-              setPoints(
-                chartPointsFromPrices(
-                  next
+              if (
+                !Number.isFinite(
+                  quote
                 )
+              ) {
+                return;
+              }
+
+              setPrice(
+                (current) => {
+                  if (
+                    current !==
+                    null
+                  ) {
+                    setPreviousPrice(
+                      current
+                    );
+                  }
+
+                  return quote;
+                }
               );
 
-              return next;
-            });
-          }
-        );
-      } catch (err) {
+              setPriceHistory(
+                (current) =>
+                  [
+                    ...current,
+                    quote,
+                  ].slice(-60)
+              );
+            }
+          );
+      } catch (error) {
         if (!cancelled) {
           setTradeError(
-            errorMessage(err)
+            errorText(error)
           );
         }
       }
     }
 
-    connectTicks();
+    startTicks();
 
     return () => {
       cancelled = true;
-      unsubscribeTicks();
+
+      if (
+        typeof cleanup ===
+        'function'
+      ) {
+        cleanup();
+      } else {
+        unsubscribeTicks(
+          symbol
+        ).catch(() => {});
+      }
     };
   }, [
-    isConnected,
+    connected,
     symbol,
     subscribeTicks,
     unsubscribeTicks,
   ]);
 
-  /*
-   * Load actual closed-trade history.
-   */
-  useEffect(() => {
-    let cancelled = false;
+  const refreshHistory =
+    useCallback(
+      async () => {
+        if (!connected) {
+          return;
+        }
 
-    async function loadHistory() {
-      if (!isConnected) {
-        return;
-      }
+        setHistoryLoading(
+          true
+        );
 
-      setHistoryLoading(true);
+        try {
+          const result =
+            await getProfitHistory({
+              limit: 30,
+              offset: 0,
+              sort: 'DESC',
+            });
 
-      try {
-        const result =
-          await getProfitHistory({
-            limit: 20,
-            offset: 0,
-            sort: 'DESC',
-          });
-
-        if (!cancelled) {
           setHistory(
             Array.isArray(
               result?.transactions
@@ -474,1496 +432,1272 @@ export default function ManualTraderPage() {
               ? result.transactions
               : []
           );
+        } catch (error) {
+          setTradeError(
+            errorText(error)
+          );
+        } finally {
+          setHistoryLoading(
+            false
+          );
         }
-      } catch {
-        if (!cancelled) {
-          setHistory([]);
+      },
+      [
+        connected,
+        getProfitHistory,
+      ]
+    );
+
+  const watchContract =
+    useCallback(
+      async (contract) => {
+        if (
+          !contract?.contract_id
+        ) {
+          return;
         }
-      } finally {
+
+        const id =
+          String(
+            contract.contract_id
+          );
+
+        setPositions(
+          (current) => {
+            const next = {
+              id,
+              contractId: id,
+
+              market:
+                contract.underlying_symbol ||
+                marketName,
+
+              symbol:
+                contract.underlying_symbol ||
+                symbol,
+
+              direction:
+                contract.contract_type ===
+                'PUT'
+                  ? 'fall'
+                  : 'rise',
+
+              stake: Number(
+                contract.buy_price ??
+                  0
+              ),
+
+              payout: Number(
+                contract.payout ??
+                  0
+              ),
+
+              profit: Number(
+                contract.profit ??
+                  0
+              ),
+
+              bidPrice: Number(
+                contract.bid_price ??
+                  0
+              ),
+
+              status:
+                contractStatus(
+                  contract
+                ),
+
+              isSold:
+                Boolean(
+                  contract.is_sold
+                ),
+
+              isValidToSell:
+                Boolean(
+                  contract.is_valid_to_sell
+                ),
+
+              currentSpot:
+                contract.current_spot ??
+                null,
+
+              exitSpot:
+                contract.exit_spot ??
+                null,
+
+              expiry:
+                contract.date_expiry ??
+                null,
+            };
+
+            const exists =
+              current.some(
+                (item) =>
+                  item.id === id
+              );
+
+            return exists
+              ? current.map(
+                  (item) =>
+                    item.id === id
+                      ? {
+                          ...item,
+                          ...next,
+                        }
+                      : item
+                )
+              : [
+                  next,
+                  ...current,
+                ];
+          }
+        );
+
+        await subscribeContract(
+          id,
+          (update) => {
+            setPositions(
+              (current) =>
+                current.map(
+                  (item) => {
+                    if (
+                      item.id !==
+                      id
+                    ) {
+                      return item;
+                    }
+
+                    return {
+                      ...item,
+
+                      stake: Number(
+                        update.buy_price ??
+                          item.stake
+                      ),
+
+                      payout: Number(
+                        update.payout ??
+                          item.payout
+                      ),
+
+                      profit: Number(
+                        update.profit ??
+                          item.profit
+                      ),
+
+                      bidPrice: Number(
+                        update.bid_price ??
+                          item.bidPrice
+                      ),
+
+                      status:
+                        contractStatus(
+                          update
+                        ),
+
+                      isSold:
+                        Boolean(
+                          update.is_sold
+                        ),
+
+                      isValidToSell:
+                        Boolean(
+                          update.is_valid_to_sell
+                        ),
+
+                      currentSpot:
+                        update.current_spot ??
+                        item.currentSpot,
+
+                      exitSpot:
+                        update.exit_spot ??
+                        item.exitSpot,
+
+                      expiry:
+                        update.date_expiry ??
+                        item.expiry,
+                    };
+                  }
+                )
+            );
+
+            if (
+              update.is_sold
+            ) {
+              setMessage(
+                `Contract ${id} settled. Final P/L: ${money(
+                  update.profit,
+                  currency
+                )}`
+              );
+
+              refreshHistory();
+            }
+          }
+        );
+      },
+      [
+        currency,
+        marketName,
+        refreshHistory,
+        subscribeContract,
+        symbol,
+      ]
+    );
+
+  useEffect(() => {
+    if (!connected) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function loadOpenPositions() {
+      try {
+        const contracts =
+          await getPortfolio();
+
+        if (cancelled) {
+          return;
+        }
+
+        for (
+          const contract of
+            contracts || []
+        ) {
+          await watchContract(
+            contract
+          );
+
+          if (cancelled) {
+            break;
+          }
+        }
+      } catch (error) {
         if (!cancelled) {
-          setHistoryLoading(false);
+          setTradeError(
+            errorText(error)
+          );
         }
       }
     }
 
-    loadHistory();
+    loadOpenPositions();
+    refreshHistory();
 
     return () => {
       cancelled = true;
     };
   }, [
-    isConnected,
-    getProfitHistory,
+    connected,
+    getPortfolio,
+    refreshHistory,
+    watchContract,
   ]);
 
-  /*
-   * Keep proposal fresh enough for the user to explicitly
-   * confirm the actual Deriv terms before buying.
-   */
-  async function createProposal(
-    direction
-  ) {
-    if (!isConnected) {
-      setTradeError(
-        'Deriv is not connected yet. Please wait for the account connection.'
+  const getProposal =
+    async (nextDirection) => {
+      if (!connected) {
+        setTradeError(
+          'Connect your Deriv account first.'
+        );
+        return;
+      }
+
+      if (!symbol) {
+        setTradeError(
+          'The trading market is still loading.'
+        );
+        return;
+      }
+
+      const amount =
+        Number(stake);
+
+      if (
+        !Number.isFinite(
+          amount
+        ) ||
+        amount <= 0
+      ) {
+        setTradeError(
+          'Enter a valid stake greater than zero.'
+        );
+        return;
+      }
+
+      if (
+        accountBalance > 0 &&
+        amount >
+          accountBalance
+      ) {
+        setTradeError(
+          `Your stake cannot exceed the current ${currency} balance.`
+        );
+        return;
+      }
+
+      const selected =
+        DURATIONS.find(
+          (item) =>
+            item.label ===
+            duration
+        ) ||
+        DURATIONS[0];
+
+      setProposalLoading(
+        true
       );
-      return;
-    }
 
-    if (!symbol) {
-      setTradeError(
-        'The Volatility 75 market is not available from Deriv yet.'
+      setProposal(null);
+      setDirection(
+        nextDirection
       );
-      return;
-    }
+      setTradeError('');
+      setMessage('');
 
-    const numericStake =
-      Number(stake);
+      try {
+        const liveProposal =
+          await requestProposal({
+            amount,
+            basis: 'stake',
 
-    if (
-      !Number.isFinite(
-        numericStake
-      ) ||
-      numericStake <= 0
-    ) {
-      setTradeError(
-        'Enter a valid stake greater than zero.'
-      );
-      return;
-    }
+            contract_type:
+              nextDirection ===
+              'rise'
+                ? 'CALL'
+                : 'PUT',
 
-    if (
-      accountBalance > 0 &&
-      numericStake > accountBalance
-    ) {
-      setTradeError(
-        `The stake of ${formatMoney(
-          numericStake,
-          currency
-        )} is greater than your current Deriv balance.`
-      );
-      return;
-    }
+            currency,
 
-    setTradeError('');
-    setStatusMessage('');
-    setProposal(null);
-    setProposalDirection(direction);
-    setProposalLoading(true);
-    setRealAccountConfirmed(false);
+            duration:
+              selected.duration,
 
-    try {
-      const durationInfo =
-        parseDuration(
-          duration
+            duration_unit:
+              selected.duration_unit,
+
+            underlying_symbol:
+              symbol,
+          });
+
+        setProposal(
+          liveProposal
         );
 
-      /*
-       * Rise/Fall uses CALL/PUT.
-       * The proposal is requested from Deriv and its returned
-       * ask price/payout/spot are displayed to the user.
-       */
-      const result =
-        await requestProposal({
-          amount: numericStake,
-          basis: 'stake',
+        setMessage(
+          'Live Deriv proposal received. Review the exact price and payout before buying.'
+        );
+      } catch (error) {
+        setDirection(null);
+
+        setTradeError(
+          errorText(error)
+        );
+      } finally {
+        setProposalLoading(
+          false
+        );
+      }
+    };
+
+  const confirmBuy =
+    async () => {
+      if (!proposal?.id) {
+        setTradeError(
+          'No live Deriv proposal is available.'
+        );
+        return;
+      }
+
+      if (
+        realAccount &&
+        !realConfirmed
+      ) {
+        setTradeError(
+          'This is a REAL account. Confirm the real-money warning before buying.'
+        );
+        return;
+      }
+
+      const askPrice =
+        Number(
+          proposal.ask_price
+        );
+
+      if (
+        !Number.isFinite(
+          askPrice
+        ) ||
+        askPrice <= 0
+      ) {
+        setTradeError(
+          'Deriv did not provide a valid proposal price.'
+        );
+        return;
+      }
+
+      setBuyLoading(true);
+      setTradeError('');
+
+      setMessage(
+        'Sending the buy request to Deriv...'
+      );
+
+      try {
+        const purchase =
+          await buyContract(
+            proposal.id,
+            askPrice
+          );
+
+        if (
+          !purchase?.contract_id
+        ) {
+          throw new Error(
+            'Deriv did not return a contract ID. No position was created.'
+          );
+        }
+
+        await watchContract({
+          contract_id:
+            purchase.contract_id,
+
           contract_type:
             direction === 'rise'
               ? 'CALL'
               : 'PUT',
-          currency,
-          duration:
-            durationInfo.duration,
-          duration_unit:
-            durationInfo.duration_unit,
+
           underlying_symbol:
             symbol,
+
+          buy_price:
+            purchase.buy_price ??
+            askPrice,
+
+          payout:
+            purchase.payout ??
+            proposal.payout,
+
+          profit:
+            purchase.profit ??
+            0,
+
+          bid_price:
+            purchase.bid_price ??
+            0,
+
+          is_sold: false,
+
+          is_valid_to_sell:
+            false,
+
+          current_spot:
+            purchase.current_spot ??
+            proposal.spot,
         });
 
-      setProposal(result);
-      setStatusMessage(
-        'Deriv returned a live proposal. Review the terms before buying.'
-      );
-    } catch (err) {
-      setProposal(null);
-      setProposalDirection(null);
-      setTradeError(
-        errorMessage(err)
-      );
-    } finally {
-      setProposalLoading(false);
-    }
-  }
+        setProposal(null);
+        setDirection(null);
+        setRealConfirmed(false);
 
-  /*
-   * Only after the user confirms the actual proposal do we
-   * send the BUY request.
-   */
-  async function confirmBuy() {
-    if (!proposal?.id) {
-      setTradeError(
-        'There is no valid Deriv proposal to buy.'
-      );
-      return;
-    }
-
-    if (
-      isRealAccount &&
-      !realAccountConfirmed
-    ) {
-      setTradeError(
-        'This is a REAL Deriv account. Confirm the real-money warning before buying.'
-      );
-      return;
-    }
-
-    const askPrice =
-      Number(
-        proposal.ask_price ??
-          proposal.display_value
-      );
-
-    if (
-      !Number.isFinite(
-        askPrice
-      )
-    ) {
-      setTradeError(
-        'Deriv did not provide a valid purchase price.'
-      );
-      return;
-    }
-
-    setBuyLoading(true);
-    setTradeError('');
-    setStatusMessage(
-      'Sending the purchase request to Deriv...'
-    );
-
-    try {
-      const purchase =
-        await buyContract(
-          proposal.id,
-          askPrice
+        setMessage(
+          `Buy confirmed by Deriv. Contract #${purchase.contract_id} is now being monitored live.`
+        );
+      } catch (error) {
+        setTradeError(
+          errorText(error)
         );
 
-      /*
-       * This is the critical safety point:
-       * a position is created ONLY after Deriv returns
-       * a real contract ID.
-       */
-      const contractId =
-        purchase.contract_id;
+        setMessage('');
+      } finally {
+        setBuyLoading(false);
+      }
+    };
 
-      if (!contractId) {
-        throw new Error(
-          'Deriv did not confirm the purchase with a contract ID.'
-        );
+  const closePosition =
+    async (position) => {
+      if (
+        !position?.contractId
+      ) {
+        return;
       }
 
-      const positionId =
-        String(contractId);
+      if (
+        !position.isValidToSell
+      ) {
+        setTradeError(
+          'Deriv does not currently allow this contract to be sold early.'
+        );
+        return;
+      }
 
-      const newPosition = {
-        id: positionId,
-        contractId:
-          positionId,
-        direction:
-          proposalDirection,
-        market:
-          marketName,
-        symbol,
-        stake: Number(
-          purchase.buy_price ??
-            proposal.ask_price ??
-            stake
-        ),
-        payout: Number(
-          purchase.payout ??
-            proposal.payout ??
-            0
-        ),
-        profit: 0,
-        status: 'Open',
-        isSold: false,
-        isValidToSell: false,
-        currentSpot:
-          purchase.current_spot ??
-          proposal.spot ??
-          null,
-      };
-
-      setPositions(
-        (current) => [
-          newPosition,
-          ...current.filter(
-            (position) =>
-              position.id !==
-              positionId
-          ),
-        ]
-      );
-
-      setProposal(null);
-      setProposalDirection(null);
-      setRealAccountConfirmed(false);
-
-      setStatusMessage(
-        `Purchase confirmed by Deriv. Contract ID: ${positionId}`
-      );
-
-      /*
-       * Subscribe to the REAL open-contract stream.
-       */
-      await subscribeContract(
-        positionId,
-        (contract) => {
-          setPositions(
-            (current) =>
-              current.map(
-                (position) => {
-                  if (
-                    position.id !==
-                    positionId
-                  ) {
-                    return position;
-                  }
-
-                  const profit =
-                    Number(
-                      contract.profit
-                    );
-
-                  const nextStatus =
-                    getContractStatus(
-                      contract
-                    );
-
-                  return {
-                    ...position,
-                    stake:
-                      Number(
-                        contract.buy_price ??
-                          position.stake
-                      ),
-                    payout:
-                      Number(
-                        contract.payout ??
-                          position.payout
-                      ),
-                    profit:
-                      Number.isFinite(
-                        profit
-                      )
-                        ? profit
-                        : position.profit,
-                    status:
-                      nextStatus,
-                    isSold:
-                      Boolean(
-                        contract.is_sold
-                      ),
-                    isValidToSell:
-                      Boolean(
-                        contract.is_valid_to_sell
-                      ),
-                    currentSpot:
-                      contract.current_spot ??
-                      contract.current_spot_display_value ??
-                      position.currentSpot,
-                    exitSpot:
-                      contract.exit_spot ??
-                      null,
-                    expiryTime:
-                      contract.date_expiry ??
-                      null,
-                  };
-                }
-              )
-          );
-
-          if (contract.is_sold) {
-            setStatusMessage(
-              `Contract ${positionId} has settled. Final P/L: ${formatMoney(
-                contract.profit,
-                currency
-              )}`
-            );
-
-            /*
-             * Refresh actual Deriv history after settlement.
-             */
-            getProfitHistory({
-              limit: 20,
-              offset: 0,
-              sort: 'DESC',
-            })
-              .then((result) => {
-                setHistory(
-                  Array.isArray(
-                    result?.transactions
-                  )
-                    ? result.transactions
-                    : []
-                );
-              })
-              .catch(() => {});
-          }
-        }
-      );
-    } catch (err) {
-      /*
-       * Absolutely no fake position is created here.
-       */
-      setTradeError(
-        errorMessage(err)
-      );
-
-      setStatusMessage('');
-    } finally {
-      setBuyLoading(false);
-    }
-  }
-
-  async function handleSell(position) {
-    if (!position?.contractId) {
-      return;
-    }
-
-    if (!position.isValidToSell) {
-      setTradeError(
-        'Deriv does not currently allow this contract to be sold early.'
-      );
-      return;
-    }
-
-    setSellLoading(
-      (current) => ({
-        ...current,
-        [position.id]: true,
-      })
-    );
-
-    setTradeError('');
-    setStatusMessage(
-      `Sending the close request for contract ${position.contractId}...`
-    );
-
-    try {
-      await sellContract(
-        position.contractId
-      );
-
-      /*
-       * We do NOT mark it sold here.
-       * The contract subscription must tell us that Deriv
-       * actually closed it.
-       */
-      setStatusMessage(
-        `Deriv accepted the close request for ${position.contractId}. Waiting for contract confirmation...`
-      );
-    } catch (err) {
-      setTradeError(
-        errorMessage(err)
-      );
-      setStatusMessage('');
-    } finally {
       setSellLoading(
         (current) => ({
           ...current,
-          [position.id]: false,
+          [position.id]: true,
         })
       );
-    }
-  }
 
-  function adjustStake(delta) {
-    setStake(
-      (current) =>
-        Math.max(
-          1,
-          Number(current) + delta
-        )
-    );
-  }
+      setTradeError('');
 
-  const linePoints = points
-    .map((point) =>
-      point.join(',')
-    )
-    .join(' ');
+      setMessage(
+        `Sending close request for contract ${position.contractId}...`
+      );
 
-  const areaPoints =
-    linePoints
-      ? `${linePoints} 600,220 0,220`
-      : '';
+      try {
+        await sellContract(
+          position.contractId,
+          position.bidPrice
+        );
 
-  const lastPoint =
-    points[points.length - 1] ||
-    [600, 110];
+        setMessage(
+          `Deriv accepted the close request for #${position.contractId}. Waiting for final contract confirmation.`
+        );
+      } catch (error) {
+        setTradeError(
+          errorText(error)
+        );
 
-  const changePct = useMemo(() => {
-    if (
-      previousPrice === null ||
-      previousPrice === 0 ||
-      price === null
-    ) {
-      return 0;
-    }
+        setMessage('');
+      } finally {
+        setSellLoading(
+          (current) => ({
+            ...current,
+            [position.id]: false,
+          })
+        );
+      }
+    };
 
-    return Math.abs(
-      ((price -
-        previousPrice) /
-        previousPrice) *
-        100
-    );
-  }, [
-    price,
-    previousPrice,
-  ]);
+  const change =
+    price != null &&
+    previousPrice != null
+      ? price -
+        previousPrice
+      : 0;
 
-  const riskPercentage =
+  const risk =
     accountBalance > 0
       ? (Number(stake) /
           accountBalance) *
         100
-      : null;
+      : 0;
+
+  if (!isLoggedIn) {
+    return (
+      <>
+        <UtilityBar />
+        <TabNav />
+
+        <main style={styles.page}>
+          <section
+            style={
+              styles.centerCard
+            }
+          >
+            <h1
+              style={
+                styles.title
+              }
+            >
+              Manual Trader
+            </h1>
+
+            <p
+              style={
+                styles.muted
+              }
+            >
+              Connect your Deriv account to load live prices, proposals and trading controls.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href =
+                  '/api/auth/login';
+              }}
+              style={
+                styles.primary
+              }
+            >
+              LOGIN WITH DERIV
+            </button>
+          </section>
+        </main>
+      </>
+    );
+  }
 
   return (
     <>
       <UtilityBar />
       <TabNav />
 
-      <div className="market-bar">
+      <main style={styles.page}>
         <div
-          className="market-picker"
-          style={{
-            cursor: 'default',
-          }}
+          style={styles.topRow}
         >
-          <div className="m-icon">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M4 19V9M12 19V5M20 19v-7" />
-            </svg>
-          </div>
-
           <div>
-            <div className="m-name">
-              {marketName}
+            <div
+              style={
+                styles.eyebrow
+              }
+            >
+              STARTRADERS · MANUAL TRADING
             </div>
 
-            <div className="m-sub">
-              Synthetic · 24/7
+            <h1
+              style={
+                styles.title
+              }
+            >
+              {marketName}
+            </h1>
+
+            <div
+              style={
+                styles.muted
+              }
+            >
+              Synthetic · 24/7{' '}
               {symbol
-                ? ` · ${symbol}`
+                ? `· ${symbol}`
                 : ''}
             </div>
           </div>
 
-          <span
-            style={{
-              marginLeft: 'auto',
-              fontSize: 11,
-              fontWeight: 700,
-              color: isConnected
-                ? '#4ade80'
-                : '#fb7185',
-            }}
-          >
-            {isConnected
-              ? 'DERIV CONNECTED'
-              : 'CONNECTING'}
-          </span>
-        </div>
-
-        <div className="live-price">
           <div
-            className="price"
-            style={{
-              color:
-                price === null
-                  ? '#94a3b8'
-                  : priceUp
-                  ? '#4ade80'
-                  : '#fb7185',
-            }}
-          >
-            {price === null
-              ? marketLoading
-                ? 'Connecting…'
-                : '—'
-              : formatNumber(
-                  price
-                )}
-          </div>
-
-          <div
-            className={
-              priceUp
-                ? 'chg up'
-                : 'chg down'
+            style={
+              styles.connection
             }
           >
-            {price === null
-              ? 'LIVE TICK'
-              : `${priceUp ? '▲' : '▼'} ${changePct.toFixed(
-                  2
-                )}%`}
+            <span
+              style={{
+                ...styles.dot,
+                background:
+                  connected
+                    ? '#22c55e'
+                    : '#f59e0b',
+              }}
+            />
+
+            {connected
+              ? 'DERIV CONNECTED'
+              : status.toUpperCase()}
           </div>
         </div>
-      </div>
 
-      <main>
-        <div className="trade-layout">
+        <section
+          style={
+            styles.priceCard
+          }
+        >
           <div>
-            <div className="chart-card">
-              <div className="timeframe-row">
-                {TIMEFRAMES.map(
-                  (tf) => (
-                    <button
-                      key={tf}
-                      className={
-                        tf === timeframe
-                          ? 'tf-btn active'
-                          : 'tf-btn'
-                      }
-                      onClick={() =>
-                        setTimeframe(
-                          tf
-                        )
-                      }
-                    >
-                      {tf}
-                    </button>
-                  )
-                )}
-              </div>
-
-              <div className="chart-area">
-                {points.length > 0 ? (
-                  <svg
-                    viewBox="0 0 600 220"
-                    preserveAspectRatio="none"
-                  >
-                    <line
-                      x1="0"
-                      y1="55"
-                      x2="600"
-                      y2="55"
-                      stroke="rgba(255,255,255,0.05)"
-                    />
-
-                    <line
-                      x1="0"
-                      y1="110"
-                      x2="600"
-                      y2="110"
-                      stroke="rgba(255,255,255,0.05)"
-                    />
-
-                    <line
-                      x1="0"
-                      y1="165"
-                      x2="600"
-                      y2="165"
-                      stroke="rgba(255,255,255,0.05)"
-                    />
-
-                    <polyline
-                      points={
-                        linePoints
-                      }
-                      fill="none"
-                      stroke="#5eead4"
-                      strokeWidth="2.5"
-                    />
-
-                    <polyline
-                      points={
-                        areaPoints
-                      }
-                      fill="url(#lineFade)"
-                      stroke="none"
-                      opacity="0.45"
-                    />
-
-                    <circle
-                      cx={
-                        lastPoint[0]
-                      }
-                      cy={
-                        lastPoint[1]
-                      }
-                      r="4"
-                      fill="#5eead4"
-                    />
-
-                    <defs>
-                      <linearGradient
-                        id="lineFade"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="0%"
-                          stopColor="#2dd4bf"
-                          stopOpacity="0.4"
-                        />
-
-                        <stop
-                          offset="100%"
-                          stopColor="#2dd4bf"
-                          stopOpacity="0"
-                        />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                ) : (
-                  <div
-                    style={{
-                      height: '100%',
-                      display: 'flex',
-                      alignItems:
-                        'center',
-                      justifyContent:
-                        'center',
-                      color:
-                        '#64748b',
-                      fontSize: 13,
-                    }}
-                  >
-                    {isConnected
-                      ? 'Waiting for live Deriv ticks…'
-                      : 'Waiting for authenticated Deriv connection…'}
-                  </div>
-                )}
-
-                {price !== null && (
-                  <div
-                    className="price-line-tag"
-                    style={{
-                      top: `${lastPoint[1]}px`,
-                    }}
-                  >
-                    {formatNumber(
-                      price
-                    )}
-                  </div>
-                )}
-              </div>
+            <div
+              style={
+                styles.label
+              }
+            >
+              LIVE MARKET PRICE
             </div>
 
-            <div className="trade-type-row">
-              {TRADE_TYPES.map(
-                (tt) => (
-                  <button
-                    key={tt.label}
-                    className={
-                      tt.label ===
-                      tradeType
-                        ? 'tt-btn active'
-                        : 'tt-btn'
-                    }
-                    disabled={
-                      !tt.enabled
-                    }
-                    title={
-                      tt.enabled
-                        ? 'Live Deriv trading'
-                        : 'Real Deriv integration for this contract type is not enabled yet'
-                    }
-                    onClick={() => {
-                      if (
-                        tt.enabled
-                      ) {
-                        setTradeType(
-                          tt.label
-                        );
-                      }
-                    }}
-                    style={
-                      !tt.enabled
-                        ? {
-                            opacity:
-                              0.45,
-                            cursor:
-                              'not-allowed',
-                          }
-                        : undefined
-                    }
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      {tt.dual ? (
-                        <>
-                          <circle
-                            cx="12"
-                            cy="12"
-                            r="9"
-                          />
-                          <circle
-                            cx="12"
-                            cy="12"
-                            r="3"
-                          />
-                        </>
-                      ) : (
-                        <path
-                          d={
-                            tt.icon
-                          }
-                        />
-                      )}
-                    </svg>
+            <div
+              style={
+                styles.price
+              }
+            >
+              {price == null
+                ? '—'
+                : number(price)}
+            </div>
 
-                    {tt.label}
-                  </button>
-                )
-              )}
+            <div
+              style={{
+                color:
+                  change >= 0
+                    ? '#4ade80'
+                    : '#fb7185',
+                fontWeight: 700,
+              }}
+            >
+              {price == null
+                ? 'Waiting for live tick…'
+                : `${
+                    change >=
+                    0
+                      ? '+'
+                      : ''
+                  }${number(
+                    change
+                  )}`}
             </div>
           </div>
 
-          <div className="trade-panel">
-            <div className="tp-row">
-              <div className="field">
-                <label>
-                  Duration
-                </label>
+          <svg
+            viewBox="0 0 700 220"
+            style={
+              styles.chart
+            }
+          >
+            <polyline
+              points={chart}
+              fill="none"
+              stroke="#22d3ee"
+              strokeWidth="3"
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+        </section>
 
-                <select
-                  value={duration}
-                  onChange={(event) =>
-                    setDuration(
-                      event.target
-                        .value
-                    )
-                  }
-                >
-                  <option>
-                    5 ticks
-                  </option>
-
-                  <option>
-                    10 ticks
-                  </option>
-
-                  <option>
-                    1 minute
-                  </option>
-
-                  <option>
-                    5 minutes
-                  </option>
-                </select>
+        <section
+          style={styles.card}
+        >
+          <div
+            style={
+              styles.sectionHeader
+            }
+          >
+            <div>
+              <div
+                style={
+                  styles.label
+                }
+              >
+                TRADE SETUP
               </div>
 
-              <div className="field">
-                <label>
-                  Stake (USD)
-                </label>
+              <h2
+                style={
+                  styles.h2
+                }
+              >
+                Rise / Fall
+              </h2>
+            </div>
 
-                <div className="stake-adjust">
-                  <button
-                    onClick={() =>
-                      adjustStake(
-                        -5
-                      )
-                    }
-                  >
-                    −
-                  </button>
+            <div
+              style={
+                styles.balance
+              }
+            >
+              Balance:{' '}
+              <strong>
+                {money(
+                  accountBalance,
+                  currency
+                )}
+              </strong>
+            </div>
+          </div>
 
+          <div
+            style={
+              styles.controls
+            }
+          >
+            <label
+              style={
+                styles.field
+              }
+            >
+              <span>
+                Duration
+              </span>
+
+              <select
+                value={
+                  duration
+                }
+                onChange={(
+                  event
+                ) =>
+                  setDuration(
+                    event.target
+                      .value
+                  )
+                }
+                style={
+                  styles.input
+                }
+              >
+                {DURATIONS.map(
+                  (item) => (
+                    <option
+                      key={
+                        item.label
+                      }
+                    >
+                      {
+                        item.label
+                      }
+                    </option>
+                  )
+                )}
+              </select>
+            </label>
+
+            <label
+              style={
+                styles.field
+              }
+            >
+              <span>
+                Stake ({currency})
+              </span>
+
+              <input
+                type="number"
+                min="0.35"
+                step="0.01"
+                value={stake}
+                onChange={(
+                  event
+                ) =>
+                  setStake(
+                    event.target
+                      .value
+                  )
+                }
+                style={
+                  styles.input
+                }
+              />
+            </label>
+
+            <div
+              style={
+                styles.riskBox
+              }
+            >
+              <span>
+                Risk
+              </span>
+
+              <strong>
+                {risk
+                  ? `${risk.toFixed(
+                      1
+                    )}%`
+                  : '—'}
+              </strong>
+            </div>
+          </div>
+
+          <div
+            style={
+              styles.tradeButtons
+            }
+          >
+            <button
+              type="button"
+              disabled={
+                !connected ||
+                marketLoading ||
+                proposalLoading
+              }
+              onClick={() =>
+                getProposal(
+                  'rise'
+                )
+              }
+              style={{
+                ...styles.tradeButton,
+                ...styles.rise,
+              }}
+            >
+              <strong>
+                ↑ RISE
+              </strong>
+
+              <span>
+                {proposalLoading &&
+                direction ===
+                  'rise'
+                  ? 'Getting live proposal…'
+                  : 'Get Deriv proposal'}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              disabled={
+                !connected ||
+                marketLoading ||
+                proposalLoading
+              }
+              onClick={() =>
+                getProposal(
+                  'fall'
+                )
+              }
+              style={{
+                ...styles.tradeButton,
+                ...styles.fall,
+              }}
+            >
+              <strong>
+                ↓ FALL
+              </strong>
+
+              <span>
+                {proposalLoading &&
+                direction ===
+                  'fall'
+                  ? 'Getting live proposal…'
+                  : 'Get Deriv proposal'}
+              </span>
+            </button>
+          </div>
+
+          {proposal && (
+            <div
+              style={
+                styles.proposal
+              }
+            >
+              <div
+                style={
+                  styles.label
+                }
+              >
+                LIVE DERIV PROPOSAL
+              </div>
+
+              <div
+                style={
+                  styles.proposalGrid
+                }
+              >
+                <div>
+                  <span>
+                    Direction
+                  </span>
+
+                  <strong>
+                    {direction ===
+                    'rise'
+                      ? 'RISE / CALL'
+                      : 'FALL / PUT'}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>
+                    Ask price
+                  </span>
+
+                  <strong>
+                    {money(
+                      proposal.ask_price,
+                      currency
+                    )}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>
+                    Payout
+                  </span>
+
+                  <strong>
+                    {money(
+                      proposal.payout,
+                      currency
+                    )}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>
+                    Spot
+                  </span>
+
+                  <strong>
+                    {number(
+                      proposal.spot
+                    )}
+                  </strong>
+                </div>
+              </div>
+
+              {proposal.longcode && (
+                <p
+                  style={
+                    styles.muted
+                  }
+                >
+                  {
+                    proposal.longcode
+                  }
+                </p>
+              )}
+
+              {realAccount && (
+                <label
+                  style={
+                    styles.warning
+                  }
+                >
                   <input
-                    type="number"
-                    value={stake}
-                    min="1"
-                    step="0.01"
-                    onChange={(event) =>
-                      setStake(
-                        Math.max(
-                          1,
-                          Number(
-                            event
-                              .target
-                              .value
-                          )
-                        )
+                    type="checkbox"
+                    checked={
+                      realConfirmed
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setRealConfirmed(
+                        event.target
+                          .checked
                       )
                     }
                   />
 
-                  <button
-                    onClick={() =>
-                      adjustStake(
-                        5
-                      )
-                    }
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            </div>
+                  <span>
+                    This is a REAL Deriv account. I understand that confirming the purchase can use real funds.
+                  </span>
+                </label>
+              )}
 
-            <div className="risk-calc">
-              <div className="risk-calc-title">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                </svg>
-
-                Risk calculator
-              </div>
-
-              <div className="risk-calc-row">
-                <span>
-                  Current Deriv balance
-                </span>
-
-                <strong>
-                  {balance
-                    ? formatMoney(
-                        accountBalance,
-                        currency
-                      )
-                    : '—'}
-                </strong>
-              </div>
-
-              <div className="risk-calc-row">
-                <span>
-                  If this loses
-                </span>
-
-                <strong className="neg">
-                  {formatMoney(
-                    stake,
-                    currency
-                  )}
-                </strong>
-              </div>
-
-              <div className="risk-calc-row">
-                <span>
-                  % of your balance
-                </span>
-
-                <strong
-                  className={
-                    riskPercentage !==
-                      null &&
-                    riskPercentage >
-                      5
-                      ? 'neg'
-                      : ''
-                  }
-                >
-                  {riskPercentage ===
-                  null
-                    ? '—'
-                    : `${riskPercentage.toFixed(
-                        1
-                      )}%`}
-                </strong>
-              </div>
-
-              {riskPercentage !==
-                null &&
-                riskPercentage >
-                  5 && (
-                  <div className="risk-calc-warn">
-                    This stake is over 5%
-                    of your current
-                    Deriv balance.
-                  </div>
-                )}
-            </div>
-
-            {tradeType ===
-              'Rise/Fall' && (
-              <div className="buy-row">
+              <div
+                style={
+                  styles.actions
+                }
+              >
                 <button
-                  className="buy-btn rise"
+                  type="button"
                   disabled={
-                    proposalLoading ||
                     buyLoading ||
-                    !isConnected ||
-                    !symbol
+                    (realAccount &&
+                      !realConfirmed)
                   }
-                  onClick={() =>
-                    createProposal(
-                      'rise'
-                    )
+                  onClick={
+                    confirmBuy
+                  }
+                  style={
+                    styles.primary
                   }
                 >
-                  <div className="bb-label">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                    >
-                      <path d="M18 15l-6-6-6 6" />
-                    </svg>
-
-                    Rise
-                  </div>
-
-                  <div className="bb-payout">
-                    {proposalDirection ===
-                      'rise' &&
-                    proposal
-                      ? `Live payout ${formatMoney(
-                          proposal.payout,
-                          currency
-                        )}`
-                      : proposalLoading &&
-                        proposalDirection ===
-                          'rise'
-                      ? 'Getting Deriv proposal…'
-                      : 'Get live Deriv proposal'}
-                  </div>
+                  {buyLoading
+                    ? 'BUYING WITH DERIV…'
+                    : 'CONFIRM BUY'}
                 </button>
 
                 <button
-                  className="buy-btn fall"
+                  type="button"
                   disabled={
-                    proposalLoading ||
-                    buyLoading ||
-                    !isConnected ||
-                    !symbol
+                    buyLoading
                   }
-                  onClick={() =>
-                    createProposal(
-                      'fall'
-                    )
+                  onClick={() => {
+                    setProposal(
+                      null
+                    );
+                    setDirection(
+                      null
+                    );
+                    setRealConfirmed(
+                      false
+                    );
+                  }}
+                  style={
+                    styles.secondary
                   }
                 >
-                  <div className="bb-label">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                    >
-                      <path d="M6 9l6 6 6-6" />
-                    </svg>
-
-                    Fall
-                  </div>
-
-                  <div className="bb-payout">
-                    {proposalDirection ===
-                      'fall' &&
-                    proposal
-                      ? `Live payout ${formatMoney(
-                          proposal.payout,
-                          currency
-                        )}`
-                      : proposalLoading &&
-                        proposalDirection ===
-                          'fall'
-                      ? 'Getting Deriv proposal…'
-                      : 'Get live Deriv proposal'}
-                  </div>
+                  CANCEL
                 </button>
               </div>
-            )}
-
-            {proposal && (
-              <div
-                style={{
-                  marginTop:
-                    16,
-                  padding: 16,
-                  border:
-                    '1px solid rgba(94,234,212,0.3)',
-                  borderRadius: 14,
-                  background:
-                    'rgba(15,23,42,0.75)',
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 800,
-                    color:
-                      '#5eead4',
-                    letterSpacing:
-                      '0.08em',
-                    marginBottom:
-                      10,
-                  }}
-                >
-                  LIVE DERIV PROPOSAL
-                </div>
-
-                <div
-                  style={{
-                    display:
-                      'grid',
-                    gridTemplateColumns:
-                      '1fr 1fr',
-                    gap: 10,
-                    fontSize: 13,
-                  }}
-                >
-                  <div>
-                    Contract
-                    <strong
-                      style={{
-                        display:
-                          'block',
-                        marginTop:
-                          3,
-                      }}
-                    >
-                      {proposalDirection ===
-                      'rise'
-                        ? 'Rise'
-                        : 'Fall'}
-                    </strong>
-                  </div>
-
-                  <div>
-                    Stake
-                    <strong
-                      style={{
-                        display:
-                          'block',
-                        marginTop:
-                          3,
-                      }}
-                    >
-                      {formatMoney(
-                        proposal.ask_price,
-                        currency
-                      )}
-                    </strong>
-                  </div>
-
-                  <div>
-                    Potential payout
-                    <strong
-                      style={{
-                        display:
-                          'block',
-                        marginTop:
-                          3,
-                      }}
-                    >
-                      {formatMoney(
-                        proposal.payout,
-                        currency
-                      )}
-                    </strong>
-                  </div>
-
-                  <div>
-                    Spot
-                    <strong
-                      style={{
-                        display:
-                          'block',
-                        marginTop:
-                          3,
-                      }}
-                    >
-                      {formatNumber(
-                        proposal.spot
-                      )}
-                    </strong>
-                  </div>
-                </div>
-
-                {proposal.longcode && (
-                  <div
-                    style={{
-                      marginTop:
-                        12,
-                      fontSize: 12,
-                      lineHeight:
-                        1.5,
-                      color:
-                        '#94a3b8',
-                    }}
-                  >
-                    {proposal.longcode}
-                  </div>
-                )}
-
-                {isRealAccount && (
-                  <label
-                    style={{
-                      display:
-                        'flex',
-                      gap: 8,
-                      alignItems:
-                        'flex-start',
-                      marginTop:
-                        14,
-                      fontSize: 12,
-                      lineHeight:
-                        1.45,
-                      color:
-                        '#fbbf24',
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={
-                        realAccountConfirmed
-                      }
-                      onChange={(event) =>
-                        setRealAccountConfirmed(
-                          event
-                            .target
-                            .checked
-                        )
-                      }
-                    />
-
-                    <span>
-                      This is a REAL
-                      Deriv account.
-                      I understand
-                      that confirming
-                      the purchase
-                      can use real
-                      funds.
-                    </span>
-                  </label>
-                )}
-
-                <div
-                  style={{
-                    display:
-                      'flex',
-                    gap: 8,
-                    marginTop:
-                      14,
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={
-                      confirmBuy
-                    }
-                    disabled={
-                      buyLoading ||
-                      (isRealAccount &&
-                        !realAccountConfirmed)
-                    }
-                    style={{
-                      flex: 1,
-                      border: 0,
-                      borderRadius:
-                        10,
-                      padding:
-                        '11px 14px',
-                      background:
-                        '#14b8a6',
-                      color:
-                        '#042f2e',
-                      fontWeight:
-                        800,
-                      cursor:
-                        buyLoading ||
-                        (isRealAccount &&
-                          !realAccountConfirmed)
-                          ? 'not-allowed'
-                          : 'pointer',
-                      opacity:
-                        buyLoading ||
-                        (isRealAccount &&
-                          !realAccountConfirmed)
-                          ? 0.55
-                          : 1,
-                    }}
-                  >
-                    {buyLoading
-                      ? 'CONFIRMING WITH DERIV…'
-                      : 'CONFIRM BUY'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProposal(
-                        null
-                      );
-                      setProposalDirection(
-                        null
-                      );
-                      setRealAccountConfirmed(
-                        false
-                      );
-                      setStatusMessage(
-                        ''
-                      );
-                    }}
-                    disabled={
-                      buyLoading
-                    }
-                    style={{
-                      border:
-                        '1px solid rgba(148,163,184,0.25)',
-                      borderRadius:
-                        10,
-                      padding:
-                        '11px 14px',
-                      background:
-                        'transparent',
-                      color:
-                        '#cbd5e1',
-                      fontWeight:
-                        700,
-                      cursor:
-                        buyLoading
-                          ? 'not-allowed'
-                          : 'pointer',
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {providerError && (
-              <div
-                style={{
-                  marginTop:
-                    12,
-                  padding: 12,
-                  borderRadius:
-                    10,
-                  background:
-                    'rgba(244,63,94,0.1)',
-                  border:
-                    '1px solid rgba(244,63,94,0.25)',
-                  color:
-                    '#fda4af',
-                  fontSize: 12,
-                }}
-              >
-                {providerError}
-              </div>
-            )}
-
-            {tradeError && (
-              <div
-                style={{
-                  marginTop:
-                    12,
-                  padding: 12,
-                  borderRadius:
-                    10,
-                  background:
-                    'rgba(244,63,94,0.1)',
-                  border:
-                    '1px solid rgba(244,63,94,0.25)',
-                  color:
-                    '#fda4af',
-                  fontSize: 12,
-                }}
-              >
-                {tradeError}
-              </div>
-            )}
-
-            {statusMessage && (
-              <div
-                style={{
-                  marginTop:
-                    12,
-                  padding: 12,
-                  borderRadius:
-                    10,
-                  background:
-                    'rgba(20,184,166,0.08)',
-                  border:
-                    '1px solid rgba(20,184,166,0.2)',
-                  color:
-                    '#99f6e4',
-                  fontSize: 12,
-                }}
-              >
-                {statusMessage}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="section-label">
-          Open positions
-        </div>
-
-        <div>
-          {positions.length ===
-            0 && (
-            <div className="empty-note">
-              {isConnected
-                ? 'No Deriv contracts are currently open from this Manual Trader.'
-                : 'Connect your Deriv account to view real positions.'}
             </div>
           )}
 
-          {positions.map(
-            (position) => {
-              const positive =
-                Number(
-                  position.profit
-                ) >= 0;
+          {providerError && (
+            <div
+              style={
+                styles.error
+              }
+            >
+              {providerError}
+            </div>
+          )}
 
-              return (
+          {tradeError && (
+            <div
+              style={
+                styles.error
+              }
+            >
+              {tradeError}
+            </div>
+          )}
+
+          {message && (
+            <div
+              style={
+                styles.success
+              }
+            >
+              {message}
+            </div>
+          )}
+        </section>
+
+        <section
+          style={styles.card}
+        >
+          <div
+            style={
+              styles.sectionHeader
+            }
+          >
+            <div>
+              <div
+                style={
+                  styles.label
+                }
+              >
+                LIVE CONTRACTS
+              </div>
+
+              <h2
+                style={
+                  styles.h2
+                }
+              >
+                Open Positions
+              </h2>
+            </div>
+
+            <span
+              style={
+                styles.muted
+              }
+            >
+              {
+                positions.length
+              }{' '}
+              position(s)
+            </span>
+          </div>
+
+          {positions.length ===
+          0 ? (
+            <div
+              style={
+                styles.empty
+              }
+            >
+              No open contracts on this Manual Trader.
+            </div>
+          ) : (
+            positions.map(
+              (position) => (
                 <div
-                  className="position-card"
                   key={
                     position.id
                   }
+                  style={
+                    styles.position
+                  }
                 >
-                  <div className="p-left">
+                  <div>
+                    <strong>
+                      {position.direction ===
+                      'rise'
+                        ? '↑ RISE'
+                        : '↓ FALL'}{' '}
+                      ·{' '}
+                      {
+                        position.market
+                      }
+                    </strong>
+
                     <div
-                      className={`p-dir ${
-                        position.direction ===
-                        'rise'
-                          ? 'rise'
-                          : 'fall'
-                      }`}
+                      style={
+                        styles.muted
+                      }
                     >
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                      >
-                        <path
-                          d={
-                            position.direction ===
-                            'rise'
-                              ? 'M18 15l-6-6-6 6'
-                              : 'M6 9l6 6 6-6'
-                          }
-                        />
-                      </svg>
+                      Contract #
+                      {
+                        position.contractId
+                      }
                     </div>
 
-                    <div>
-                      <div className="p-market">
-                        {position.market}{' '}
-                        ·{' '}
-                        {formatMoney(
-                          position.stake,
-                          currency
-                        )}
-                      </div>
-
-                      <div className="p-sub">
-                        {position.direction ===
-                        'rise'
-                          ? 'Rise'
-                          : 'Fall'}{' '}
-                        ·{' '}
-                        {duration}{' '}
-                        · Contract #
-                        {
-                          position.contractId
-                        }
-                      </div>
+                    <div
+                      style={
+                        styles.muted
+                      }
+                    >
+                      Spot:{' '}
+                      {number(
+                        position.currentSpot
+                      )}{' '}
+                      · Bid:{' '}
+                      {number(
+                        position.bidPrice
+                      )}
                     </div>
                   </div>
 
                   <div
-                    style={{
-                      textAlign:
-                        'right',
-                    }}
+                    style={
+                      styles.positionRight
+                    }
                   >
-                    <div
-                      className={`p-pnl ${
-                        positive
-                          ? 'pos'
-                          : 'neg'
-                      }`}
+                    <strong
+                      style={{
+                        color:
+                          Number(
+                            position.profit
+                          ) >=
+                          0
+                            ? '#4ade80'
+                            : '#fb7185',
+                      }}
                     >
-                      {positive
+                      {Number(
+                        position.profit
+                      ) >=
+                      0
                         ? '+'
                         : ''}
-                      {formatMoney(
+                      {money(
                         position.profit,
                         currency
                       )}
-                    </div>
+                    </strong>
 
-                    <div className="p-timer">
+                    <span
+                      style={
+                        styles.muted
+                      }
+                    >
                       {position.isSold
-                        ? position.profit >
-                          0
-                          ? 'Won'
-                          : position.profit <
-                            0
-                          ? 'Lost'
-                          : 'Settled'
+                        ? contractStatus(
+                            position
+                          )
                         : position.status}
-                    </div>
+                    </span>
 
                     {!position.isSold &&
                       position.isValidToSell && (
                         <button
                           type="button"
+                          disabled={
+                            sellLoading[
+                              position.id
+                            ]
+                          }
                           onClick={() =>
-                            handleSell(
+                            closePosition(
                               position
                             )
                           }
-                          disabled={
-                            Boolean(
-                              sellLoading[
-                                position
-                                  .id
-                              ]
-                            )
+                          style={
+                            styles.close
                           }
-                          style={{
-                            marginTop:
-                              7,
-                            border:
-                              '1px solid rgba(251,113,133,0.3)',
-                            borderRadius:
-                              8,
-                            padding:
-                              '5px 9px',
-                            background:
-                              'rgba(244,63,94,0.08)',
-                            color:
-                              '#fda4af',
-                            fontSize:
-                              11,
-                            fontWeight:
-                              800,
-                            cursor:
-                              'pointer',
-                          }}
                         >
                           {sellLoading[
-                            position
-                              .id
+                            position.id
                           ]
                             ? 'CLOSING…'
                             : 'SELL / CLOSE'}
@@ -1971,90 +1705,101 @@ export default function ManualTraderPage() {
                       )}
                   </div>
                 </div>
-              );
-            }
+              )
+            )
           )}
-        </div>
+        </section>
 
-        <div
-          className="section-label"
-          style={{
-            marginTop: 28,
-          }}
+        <section
+          style={styles.card}
         >
-          Recent trade history
-        </div>
+          <div
+            style={
+              styles.sectionHeader
+            }
+          >
+            <div>
+              <div
+                style={
+                  styles.label
+                }
+              >
+                ACCOUNT HISTORY
+              </div>
 
-        <div>
-          {historyLoading ? (
-            <div className="empty-note">
-              Loading actual Deriv trade history…
+              <h2
+                style={
+                  styles.h2
+                }
+              >
+                Recent Deriv Trades
+              </h2>
             </div>
-          ) : history.length ===
-            0 ? (
-            <div className="empty-note">
-              No closed Deriv trades found for this account.
+
+            <button
+              type="button"
+              onClick={
+                refreshHistory
+              }
+              style={
+                styles.secondary
+              }
+            >
+              {historyLoading
+                ? 'LOADING…'
+                : 'REFRESH'}
+            </button>
+          </div>
+
+          {history.length ===
+          0 ? (
+            <div
+              style={
+                styles.empty
+              }
+            >
+              {historyLoading
+                ? 'Loading actual Deriv history…'
+                : 'No closed Deriv trades found.'}
             </div>
           ) : (
             history
-              .slice(0, 10)
+              .slice(0, 15)
               .map(
-                (trade) => {
+                (
+                  trade,
+                  index
+                ) => {
                   const profit =
                     Number(
                       trade.profit ??
-                        (Number(
-                          trade.sell_price
-                        ) -
-                          Number(
-                            trade.buy_price
-                          ))
+                        0
                     );
 
                   return (
                     <div
-                      className="position-card"
                       key={
                         trade.transaction_id ||
-                        `${trade.purchase_time}-${trade.buy_price}`
+                        `${trade.purchase_time}-${index}`
+                      }
+                      style={
+                        styles.historyRow
                       }
                     >
-                      <div className="p-left">
+                      <div>
+                        <strong>
+                          {trade.contract_type ||
+                            'Deriv contract'}
+                        </strong>
+
                         <div
-                          className={`p-dir ${
-                            profit >= 0
-                              ? 'rise'
-                              : 'fall'
-                          }`}
+                          style={
+                            styles.muted
+                          }
                         >
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.5"
-                          >
-                            <path
-                              d={
-                                profit >=
-                                0
-                                  ? 'M18 15l-6-6-6 6'
-                                  : 'M6 9l6 6 6-6'
-                              }
-                            />
-                          </svg>
-                        </div>
-
-                        <div>
-                          <div className="p-market">
-                            {trade.contract_type ||
-                              'Deriv contract'}
-                          </div>
-
-                          <div className="p-sub">
-                            Contract #
-                            {trade.transaction_id ||
-                              '—'}
-                          </div>
+                          Transaction #
+                          {trade.transaction_id ||
+                            '—'}
                         </div>
                       </div>
 
@@ -2064,32 +1809,37 @@ export default function ManualTraderPage() {
                             'right',
                         }}
                       >
-                        <div
-                          className={`p-pnl ${
-                            profit >=
-                            0
-                              ? 'pos'
-                              : 'neg'
-                          }`}
+                        <strong
+                          style={{
+                            color:
+                              profit >=
+                              0
+                                ? '#4ade80'
+                                : '#fb7185',
+                          }}
                         >
                           {profit >=
                           0
                             ? '+'
                             : ''}
-                          {formatMoney(
+                          {money(
                             profit,
                             currency
                           )}
-                        </div>
+                        </strong>
 
-                        <div className="p-timer">
+                        <div
+                          style={
+                            styles.muted
+                          }
+                        >
                           Buy{' '}
-                          {formatMoney(
+                          {money(
                             trade.buy_price,
                             currency
                           )}{' '}
                           · Sell{' '}
-                          {formatMoney(
+                          {money(
                             trade.sell_price,
                             currency
                           )}
@@ -2100,8 +1850,380 @@ export default function ManualTraderPage() {
                 }
               )
           )}
-        </div>
+        </section>
       </main>
     </>
   );
 }
+
+const styles = {
+  page: {
+    minHeight:
+      'calc(100vh - 150px)',
+    background: '#020914',
+    color: '#e5edf8',
+    padding:
+      '28px clamp(16px, 4vw, 52px) 80px',
+  },
+
+  topRow: {
+    maxWidth: 1180,
+    margin: '0 auto 18px',
+    display: 'flex',
+    justifyContent:
+      'space-between',
+    alignItems:
+      'flex-end',
+    gap: 20,
+  },
+
+  eyebrow: {
+    color: '#22d3ee',
+    fontSize: 12,
+    fontWeight: 900,
+    letterSpacing:
+      '0.16em',
+  },
+
+  title: {
+    margin:
+      '7px 0 3px',
+    fontSize:
+      'clamp(28px, 4vw, 44px)',
+    fontWeight: 900,
+  },
+
+  h2: {
+    margin:
+      '5px 0 0',
+    fontSize: 22,
+  },
+
+  muted: {
+    color: '#8ea3bd',
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
+
+  label: {
+    color: '#fb923c',
+    fontSize: 11,
+    fontWeight: 900,
+    letterSpacing:
+      '0.14em',
+  },
+
+  connection: {
+    border:
+      '1px solid rgba(34,211,238,.25)',
+    borderRadius: 999,
+    padding:
+      '9px 13px',
+    fontSize: 11,
+    fontWeight: 900,
+  },
+
+  dot: {
+    display:
+      'inline-block',
+    width: 8,
+    height: 8,
+    borderRadius:
+      '50%',
+    marginRight: 7,
+  },
+
+  priceCard: {
+    maxWidth: 1180,
+    margin:
+      '0 auto 18px',
+    padding: 22,
+    borderRadius: 18,
+    border:
+      '1px solid rgba(34,211,238,.2)',
+    background:
+      'linear-gradient(135deg, rgba(8,30,52,.98), rgba(4,14,28,.98))',
+    display: 'grid',
+    gridTemplateColumns:
+      'minmax(180px, .35fr) 1fr',
+    gap: 18,
+    overflow: 'hidden',
+  },
+
+  price: {
+    fontSize:
+      'clamp(34px, 6vw, 62px)',
+    fontWeight: 900,
+    margin:
+      '8px 0',
+  },
+
+  chart: {
+    width: '100%',
+    minHeight: 190,
+    background:
+      'rgba(2,9,20,.5)',
+    borderRadius: 12,
+  },
+
+  card: {
+    maxWidth: 1180,
+    margin:
+      '0 auto 18px',
+    padding: 22,
+    borderRadius: 18,
+    border:
+      '1px solid rgba(100,150,200,.16)',
+    background:
+      'rgba(6,19,35,.96)',
+  },
+
+  sectionHeader: {
+    display: 'flex',
+    justifyContent:
+      'space-between',
+    alignItems:
+      'center',
+    gap: 15,
+    marginBottom: 18,
+  },
+
+  balance: {
+    color: '#8ea3bd',
+    fontSize: 13,
+  },
+
+  controls: {
+    display: 'grid',
+    gridTemplateColumns:
+      '1fr 1fr 160px',
+    gap: 12,
+    marginBottom: 14,
+  },
+
+  field: {
+    display: 'grid',
+    gap: 6,
+    color: '#9fb1c7',
+    fontSize: 12,
+    fontWeight: 800,
+  },
+
+  input: {
+    width: '100%',
+    boxSizing:
+      'border-box',
+    padding:
+      '12px 13px',
+    borderRadius: 10,
+    border:
+      '1px solid rgba(148,163,184,.22)',
+    background:
+      '#071425',
+    color: '#eef6ff',
+    fontSize: 14,
+  },
+
+  riskBox: {
+    borderRadius: 10,
+    border:
+      '1px solid rgba(148,163,184,.16)',
+    background:
+      '#071425',
+    padding:
+      '10px 13px',
+    display: 'flex',
+    flexDirection:
+      'column',
+    justifyContent:
+      'center',
+    color: '#8ea3bd',
+    fontSize: 12,
+  },
+
+  tradeButtons: {
+    display: 'grid',
+    gridTemplateColumns:
+      '1fr 1fr',
+    gap: 12,
+  },
+
+  tradeButton: {
+    border: 0,
+    borderRadius: 13,
+    padding:
+      '17px 15px',
+    color: '#fff',
+    cursor: 'pointer',
+    display: 'flex',
+    flexDirection:
+      'column',
+    gap: 5,
+    textAlign: 'left',
+  },
+
+  rise: {
+    background:
+      'linear-gradient(135deg, #047857, #059669)',
+  },
+
+  fall: {
+    background:
+      'linear-gradient(135deg, #9f1239, #e11d48)',
+  },
+
+  proposal: {
+    marginTop: 16,
+    padding: 17,
+    borderRadius: 14,
+    border:
+      '1px solid rgba(45,212,191,.3)',
+    background:
+      'rgba(7,30,37,.8)',
+  },
+
+  proposalGrid: {
+    display: 'grid',
+    gridTemplateColumns:
+      'repeat(4, 1fr)',
+    gap: 12,
+    marginTop: 12,
+  },
+
+  actions: {
+    display: 'flex',
+    gap: 9,
+    marginTop: 15,
+  },
+
+  primary: {
+    border: 0,
+    borderRadius: 10,
+    padding:
+      '11px 16px',
+    background:
+      '#22d3ee',
+    color: '#042f3a',
+    fontWeight: 900,
+    cursor: 'pointer',
+  },
+
+  secondary: {
+    border:
+      '1px solid rgba(148,163,184,.25)',
+    borderRadius: 10,
+    padding:
+      '10px 14px',
+    background:
+      'transparent',
+    color: '#cbd5e1',
+    fontWeight: 800,
+    cursor: 'pointer',
+  },
+
+  warning: {
+    display: 'flex',
+    gap: 9,
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 10,
+    background:
+      'rgba(245,158,11,.08)',
+    color: '#fbbf24',
+    fontSize: 12,
+    lineHeight: 1.5,
+  },
+
+  error: {
+    marginTop: 12,
+    padding: 11,
+    borderRadius: 10,
+    background:
+      'rgba(244,63,94,.09)',
+    border:
+      '1px solid rgba(244,63,94,.22)',
+    color: '#fda4af',
+    fontSize: 12,
+  },
+
+  success: {
+    marginTop: 12,
+    padding: 11,
+    borderRadius: 10,
+    background:
+      'rgba(34,197,94,.07)',
+    border:
+      '1px solid rgba(34,197,94,.2)',
+    color: '#86efac',
+    fontSize: 12,
+  },
+
+  position: {
+    display: 'flex',
+    justifyContent:
+      'space-between',
+    gap: 18,
+    padding:
+      '15px 0',
+    borderTop:
+      '1px solid rgba(148,163,184,.1)',
+  },
+
+  positionRight: {
+    display: 'flex',
+    alignItems:
+      'flex-end',
+    flexDirection:
+      'column',
+    gap: 4,
+  },
+
+  close: {
+    marginTop: 5,
+    border:
+      '1px solid rgba(251,113,133,.3)',
+    borderRadius: 8,
+    padding:
+      '6px 9px',
+    background:
+      'rgba(244,63,94,.08)',
+    color: '#fda4af',
+    fontSize: 11,
+    fontWeight: 900,
+    cursor: 'pointer',
+  },
+
+  historyRow: {
+    display: 'flex',
+    justifyContent:
+      'space-between',
+    gap: 18,
+    padding:
+      '13px 0',
+    borderTop:
+      '1px solid rgba(148,163,184,.1)',
+  },
+
+  empty: {
+    padding: 18,
+    borderRadius: 10,
+    background:
+      'rgba(148,163,184,.05)',
+    color: '#8ea3bd',
+    fontSize: 13,
+  },
+
+  centerCard: {
+    maxWidth: 620,
+    margin:
+      '80px auto',
+    padding: 30,
+    borderRadius: 18,
+    border:
+      '1px solid rgba(34,211,238,.2)',
+    background:
+      '#061323',
+    textAlign:
+      'center',
+  },
+};
