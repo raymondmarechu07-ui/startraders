@@ -1,6 +1,6 @@
 'use client';
 
-import {
+import React, {
   createContext,
   useCallback,
   useContext,
@@ -11,579 +11,688 @@ import {
 
 const DerivContext = createContext(null);
 
-function getDerivError(message, fallback = 'Deriv API request failed.') {
-  if (message?.error?.message) return message.error.message;
-  if (message?.errors?.[0]?.message) return message.errors[0].message;
-  if (message?.message) return message.message;
-  return fallback;
-}
-
 export function DerivProvider({ children }) {
   const [accounts, setAccounts] = useState([]);
   const [activeAccountId, setActiveAccountId] = useState(null);
   const [balance, setBalance] = useState(null);
-
-  // Per-account balances so the account switcher can show
-  // the correct balance for each account.
   const [balances, setBalances] = useState({});
-
   const [status, setStatus] = useState('disconnected');
   const [error, setError] = useState(null);
+  const [ticks, setTicks] = useState({});
+  const [portfolio, setPortfolio] = useState([]);
 
   const wsRef = useRef(null);
-  const requestIdRef = useRef(1);
-
-  // req_id -> { resolve, reject, timeout }
-  const pendingRequestsRef = useRef(new Map());
-
-  // One active market-tick subscription is enough for the
-  // current Manual Trader. The structure can be extended later.
-  const tickSubscriptionRef = useRef({
-    symbol: null,
-    subscriptionId: null,
-    onTick: null,
-  });
-
-  // contract_id -> {
-  //   subscriptionId,
-  //   onUpdate
-  // }
+  const reqIdRef = useRef(1);
+  const pendingRef = useRef(new Map());
+  const subscriptionsRef = useRef(new Map());
   const contractSubscriptionsRef = useRef(new Map());
+  const reconnectTimerRef = useRef(null);
+  const mountedRef = useRef(true);
 
-  const rejectPendingRequests = useCallback((message) => {
-    const pending = pendingRequestsRef.current;
-
-    pending.forEach(({ reject, timeout }) => {
-      clearTimeout(timeout);
-      reject(new Error(message));
-    });
-
-    pending.clear();
+  const nextReqId = useCallback(() => {
+    const id = reqIdRef.current;
+    reqIdRef.current += 1;
+    return id;
   }, []);
 
-  const sendRequest = useCallback((payload, timeoutMs = 15000) => {
-    return new Promise((resolve, reject) => {
-      const ws = wsRef.current;
+  const clearPending = useCallback(() => {
+    pendingRef.current.forEach(({ reject, timer }) => {
+      if (timer) clearTimeout(timer);
+      reject(new Error('Deriv connection closed'));
+    });
 
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        reject(new Error('Deriv WebSocket is not connected.'));
-        return;
-      }
+    pendingRef.current.clear();
+  }, []);
 
-      const reqId = requestIdRef.current++;
+  const sendRequest = useCallback(
+    (payload, timeout = 15000) => {
+      return new Promise((resolve, reject) => {
+        const ws = wsRef.current;
 
-      const timeout = setTimeout(() => {
-        pendingRequestsRef.current.delete(reqId);
-        reject(new Error('Deriv request timed out. Please try again.'));
-      }, timeoutMs);
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          reject(new Error('Deriv WebSocket is not connected'));
+          return;
+        }
 
-      pendingRequestsRef.current.set(reqId, {
-        resolve,
-        reject,
-        timeout,
+        const req_id = nextReqId();
+
+        const timer = setTimeout(() => {
+          pendingRef.current.delete(req_id);
+          reject(
+            new Error(
+              `Deriv request timed out: ${
+                payload.proposal
+                  ? 'proposal'
+                  : payload.buy
+                    ? 'buy'
+                    : payload.sell
+                      ? 'sell'
+                      : payload.proposal_open_contract
+                        ? 'proposal_open_contract'
+                        : 'request'
+              }`
+            )
+          );
+        }, timeout);
+
+        pendingRef.current.set(req_id, {
+          resolve,
+          reject,
+          timer,
+        });
+
+        try {
+          ws.send(JSON.stringify({ ...payload, req_id }));
+        } catch (err) {
+          clearTimeout(timer);
+          pendingRef.current.delete(req_id);
+          reject(err);
+        }
+      });
+    },
+    [nextReqId]
+  );
+
+  const fetchBalanceFor = useCallback(async (accountId) => {
+    if (!accountId) return null;
+
+    try {
+      const response = await fetch('/api/otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          accountId,
+        }),
+        cache: 'no-store',
       });
 
-      try {
-        ws.send(
-          JSON.stringify({
-            ...payload,
-            req_id: reqId,
-          })
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error?.message ||
+            data?.error ||
+            'Unable to obtain Deriv WebSocket OTP'
         );
-      } catch (err) {
-        clearTimeout(timeout);
-        pendingRequestsRef.current.delete(reqId);
-        reject(err);
       }
-    });
-  }, []);
 
-  /*
-   * Opens a short-lived WebSocket only to read one account's
-   * balance. This preserves the original account-switcher behavior.
-   */
-  const fetchBalanceFor = useCallback((accountId) => {
-    if (!accountId) return;
-
-    fetch('/api/otp', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ accountId }),
-    })
-      .then(async (response) => {
-        const json = await response.json();
-
-        if (!response.ok) {
-          throw new Error(getDerivError(json));
-        }
-
-        return json;
-      })
-      .then((json) => {
-        const url = json?.data?.url;
-
-        if (!url) {
-          throw new Error('Deriv did not return a WebSocket URL.');
-        }
-
-        const ws = new WebSocket(url);
-
-        const timeout = setTimeout(() => {
-          try {
-            ws.close();
-          } catch {}
-        }, 8000);
-
-        ws.onopen = () => {
-          ws.send(
-            JSON.stringify({
-              balance: 1,
-            })
-          );
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const msg = JSON.parse(event.data);
-
-            if (msg.error) {
-              clearTimeout(timeout);
-              return;
-            }
-
-            if (msg.msg_type === 'balance' && msg.balance) {
-              setBalances((prev) => ({
-                ...prev,
-                [accountId]: msg.balance,
-              }));
-
-              clearTimeout(timeout);
-
-              try {
-                ws.close();
-              } catch {}
-            }
-          } catch {}
-        };
-
-        ws.onerror = () => {
-          clearTimeout(timeout);
-        };
-
-        ws.onclose = () => {
-          clearTimeout(timeout);
-        };
-      })
-      .catch(() => {});
+      return data;
+    } catch (err) {
+      console.error('fetchBalanceFor error:', err);
+      throw err;
+    }
   }, []);
 
   const loadAccounts = useCallback(async () => {
-    const response = await fetch('/api/accounts', {
-      cache: 'no-store',
-    });
+    try {
+      const response = await fetch('/api/accounts', {
+        method: 'GET',
+        cache: 'no-store',
+      });
 
-    const json = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(getDerivError(json, 'Unable to load your Deriv accounts.'));
-    }
-
-    const list = Array.isArray(json.data) ? json.data : [];
-
-    setAccounts(list);
-
-    setActiveAccountId((current) => {
-      if (
-        current &&
-        list.some((account) => account.account_id === current)
-      ) {
-        return current;
+      if (!response.ok) {
+        throw new Error(
+          data?.error?.message ||
+            data?.error ||
+            'Unable to load Deriv accounts'
+        );
       }
 
-      return list[0]?.account_id || null;
-    });
+      const rawAccounts =
+        data?.accounts ||
+        data?.data ||
+        (Array.isArray(data) ? data : []);
 
-    // Preserve the existing behavior:
-    // fetch each account's balance for the account switcher.
-    list.forEach((account) => {
-      fetchBalanceFor(account.account_id);
-    });
+      const normalized = rawAccounts
+        .map((account) => ({
+          ...account,
+          id:
+            account.id ||
+            account.account_id ||
+            account.loginid ||
+            account.login_id,
+          loginid:
+            account.loginid ||
+            account.login_id ||
+            account.id ||
+            account.account_id,
+          currency: account.currency || 'USD',
+        }))
+        .filter((account) => account.id || account.loginid);
 
-    return list;
-  }, [fetchBalanceFor]);
+      if (mountedRef.current) {
+        setAccounts(normalized);
+
+        setActiveAccountId((current) => {
+          if (current && normalized.some((a) => a.id === current)) {
+            return current;
+          }
+
+          return normalized[0]?.id || normalized[0]?.loginid || null;
+        });
+      }
+
+      return normalized;
+    } catch (err) {
+      console.error('loadAccounts error:', err);
+
+      if (mountedRef.current) {
+        setError(err.message || 'Unable to load accounts');
+      }
+
+      return [];
+    }
+  }, []);
+
+  const disconnect = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+
+    clearPending();
+
+    const ws = wsRef.current;
+
+    if (ws) {
+      try {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        ws.close();
+      } catch {
+        // Ignore close errors.
+      }
+    }
+
+    wsRef.current = null;
+
+    subscriptionsRef.current.clear();
+    contractSubscriptionsRef.current.clear();
+
+    if (mountedRef.current) {
+      setStatus('disconnected');
+    }
+  }, [clearPending]);
 
   const connect = useCallback(
-    async (accountId) => {
-      if (!accountId) return;
+    async (accountId = activeAccountId) => {
+      if (!accountId) {
+        throw new Error('No Deriv account selected');
+      }
 
-      setStatus('connecting');
-      setError(null);
+      if (
+        wsRef.current &&
+        wsRef.current.readyState === WebSocket.OPEN &&
+        activeAccountId === accountId
+      ) {
+        return wsRef.current;
+      }
+
+      disconnect();
+
+      if (mountedRef.current) {
+        setStatus('connecting');
+        setError(null);
+      }
 
       try {
-        if (wsRef.current) {
-          try {
-            wsRef.current.close();
-          } catch {}
-        }
+        const otpData = await fetchBalanceFor(accountId);
 
-        rejectPendingRequests('Previous Deriv connection was closed.');
+        const wsUrl =
+          otpData?.url ||
+          otpData?.ws_url ||
+          otpData?.websocket_url;
 
-        tickSubscriptionRef.current = {
-          symbol: null,
-          subscriptionId: null,
-          onTick: null,
-        };
-
-        contractSubscriptionsRef.current.clear();
-
-        const response = await fetch('/api/otp', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            accountId,
-          }),
-        });
-
-        const json = await response.json();
-
-        if (!response.ok || !json?.data?.url) {
+        if (!wsUrl) {
           throw new Error(
-            getDerivError(
-              json,
-              'Could not obtain a Deriv WebSocket session.'
-            )
+            'Deriv did not return an authenticated WebSocket URL'
           );
         }
 
-        const ws = new WebSocket(json.data.url);
+        const ws = new WebSocket(wsUrl);
 
         wsRef.current = ws;
 
-        ws.onopen = () => {
-          setStatus('connected');
-          setError(null);
+        await new Promise((resolve, reject) => {
+          let settled = false;
 
-          // Preserve existing real balance subscription.
-          ws.send(
-            JSON.stringify({
-              balance: 1,
-              subscribe: 1,
-            })
-          );
+          const timeout = setTimeout(() => {
+            if (!settled) {
+              settled = true;
+              reject(
+                new Error('Timed out connecting to Deriv WebSocket')
+              );
+            }
+          }, 15000);
 
-          // Preserve existing portfolio functionality.
-          ws.send(
-            JSON.stringify({
-              portfolio: 1,
-            })
-          );
-        };
+          ws.onopen = () => {
+            if (settled) return;
+
+            settled = true;
+            clearTimeout(timeout);
+            resolve();
+          };
+
+          ws.onerror = () => {
+            if (settled) return;
+
+            settled = true;
+            clearTimeout(timeout);
+            reject(
+              new Error('Deriv WebSocket connection failed')
+            );
+          };
+        });
 
         ws.onmessage = (event) => {
+          let data;
+
           try {
-            const msg = JSON.parse(event.data);
+            data = JSON.parse(event.data);
+          } catch {
+            return;
+          }
 
-            /*
-             * First handle request-specific responses.
-             */
-            if (msg.req_id !== undefined && msg.req_id !== null) {
-              const pending = pendingRequestsRef.current.get(msg.req_id);
+          const reqId = data?.req_id;
 
-              if (pending) {
-                clearTimeout(pending.timeout);
-                pendingRequestsRef.current.delete(msg.req_id);
+          if (reqId && pendingRef.current.has(reqId)) {
+            const pending = pendingRef.current.get(reqId);
 
-                if (msg.error) {
-                  pending.reject(
-                    new Error(
-                      getDerivError(msg, 'Deriv rejected the request.')
-                    )
+            pendingRef.current.delete(reqId);
+
+            if (pending.timer) {
+              clearTimeout(pending.timer);
+            }
+
+            if (data.error) {
+              pending.reject(
+                new Error(
+                  data.error.message ||
+                    data.error.code ||
+                    'Deriv API error'
+                )
+              );
+            } else {
+              pending.resolve(data);
+            }
+          }
+
+          if (data.msg_type === 'balance') {
+            const balanceData = data.balance;
+
+            if (balanceData) {
+              const numericBalance = Number(
+                balanceData.balance
+              );
+
+              const currency =
+                balanceData.currency || 'USD';
+
+              if (mountedRef.current) {
+                setBalance({
+                  ...balanceData,
+                  balance: numericBalance,
+                });
+
+                setBalances((current) => ({
+                  ...current,
+                  [accountId]: {
+                    ...balanceData,
+                    balance: numericBalance,
+                  },
+                }));
+              }
+            }
+          }
+
+          if (data.msg_type === 'tick') {
+            const tick = data.tick;
+
+            if (tick?.symbol) {
+              if (mountedRef.current) {
+                setTicks((current) => ({
+                  ...current,
+                  [tick.symbol]: tick,
+                }));
+              }
+            }
+          }
+
+          if (data.msg_type === 'proposal') {
+            const proposal = data.proposal;
+
+            if (proposal?.id) {
+              const symbol =
+                proposal.underlying_symbol ||
+                proposal.symbol ||
+                proposal.echo_req?.underlying_symbol;
+
+              if (symbol && mountedRef.current) {
+                setTicks((current) => ({
+                  ...current,
+                  [`proposal:${symbol}`]: {
+                    ...proposal,
+                    msg_type: 'proposal',
+                  },
+                }));
+              }
+            }
+          }
+
+          if (
+            data.msg_type === 'proposal_open_contract'
+          ) {
+            const contract =
+              data.proposal_open_contract;
+
+            if (!contract) return;
+
+            const contractId = String(
+              contract.contract_id
+            );
+
+            const subscription =
+              contractSubscriptionsRef.current.get(
+                contractId
+              );
+
+            if (subscription) {
+              subscription.forEach((callback) => {
+                try {
+                  callback(contract);
+                } catch (err) {
+                  console.error(
+                    'Contract callback error:',
+                    err
                   );
-                } else {
-                  pending.resolve(msg);
                 }
-              }
+              });
             }
+          }
 
-            /*
-             * Existing balance handling.
-             */
-            if (msg.msg_type === 'balance' && msg.balance) {
-              setBalance(msg.balance);
+          if (data.msg_type === 'portfolio') {
+            const contracts =
+              data?.portfolio?.contracts || [];
 
-              setBalances((prev) => ({
-                ...prev,
-                [accountId]: msg.balance,
-              }));
+            if (mountedRef.current) {
+              setPortfolio(contracts);
             }
-
-            /*
-             * Existing general Deriv error handling.
-             */
-            if (msg.error) {
-              setError(
-                msg.error.message || 'Deriv API error'
-              );
-            }
-
-            /*
-             * REAL MARKET TICKS
-             */
-            if (
-              msg.msg_type === 'tick' &&
-              msg.tick
-            ) {
-              const tickSubscription =
-                tickSubscriptionRef.current;
-
-              if (
-                typeof tickSubscription.onTick === 'function'
-              ) {
-                tickSubscription.onTick(msg.tick);
-              }
-            }
-
-            /*
-             * REAL OPEN CONTRACT UPDATES
-             */
-            if (
-              msg.msg_type === 'proposal_open_contract' &&
-              msg.proposal_open_contract
-            ) {
-              const contract =
-                msg.proposal_open_contract;
-
-              const contractId = String(
-                contract.contract_id
-              );
-
-              const subscription =
-                contractSubscriptionsRef.current.get(
-                  contractId
-                );
-
-              if (
-                subscription &&
-                typeof subscription.onUpdate === 'function'
-              ) {
-                subscription.onUpdate(
-                  contract,
-                  msg
-                );
-              }
-
-              /*
-               * When Deriv tells us the contract has finished,
-               * stop its subscription.
-               */
-              if (contract.is_sold) {
-                if (
-                  subscription?.subscriptionId
-                ) {
-                  try {
-                    ws.send(
-                      JSON.stringify({
-                        forget:
-                          subscription.subscriptionId,
-                      })
-                    );
-                  } catch {}
-                }
-
-                contractSubscriptionsRef.current.delete(
-                  contractId
-                );
-              }
-            }
-          } catch {}
+          }
         };
 
-        ws.onerror = () => {
-          setStatus('error');
-          setError(
-            'Deriv WebSocket connection failed.'
+        ws.onerror = (event) => {
+          console.error(
+            'Deriv WebSocket error:',
+            event
           );
 
-          rejectPendingRequests(
-            'Deriv WebSocket connection failed.'
-          );
+          if (mountedRef.current) {
+            setStatus('error');
+            setError('Deriv WebSocket error');
+          }
         };
 
         ws.onclose = () => {
+          clearPending();
+
           if (wsRef.current === ws) {
             wsRef.current = null;
           }
 
-          setStatus('disconnected');
-
-          rejectPendingRequests(
-            'Deriv WebSocket connection closed.'
-          );
-
-          tickSubscriptionRef.current = {
-            symbol: null,
-            subscriptionId: null,
-            onTick: null,
-          };
-
-          contractSubscriptionsRef.current.clear();
+          if (mountedRef.current) {
+            setStatus('disconnected');
+          }
         };
+
+        if (mountedRef.current) {
+          setStatus('connected');
+          setActiveAccountId(accountId);
+          setError(null);
+        }
+
+        // Balance stream.
+        try {
+          await sendRequest({
+            balance: 1,
+            subscribe: 1,
+          });
+        } catch (err) {
+          console.warn(
+            'Balance subscription failed:',
+            err
+          );
+        }
+
+        // Existing open contracts.
+        try {
+          const portfolioResponse =
+            await sendRequest({
+              portfolio: 1,
+            });
+
+          const contracts =
+            portfolioResponse?.portfolio?.contracts ||
+            [];
+
+          if (mountedRef.current) {
+            setPortfolio(contracts);
+          }
+        } catch (err) {
+          console.warn(
+            'Portfolio request failed:',
+            err
+          );
+        }
+
+        return ws;
       } catch (err) {
-        setStatus('error');
-        setError(
-          err?.message ||
-            'Unable to connect to Deriv.'
-        );
+        console.error('Deriv connect error:', err);
+
+        if (mountedRef.current) {
+          setStatus('error');
+          setError(
+            err.message ||
+              'Unable to connect to Deriv'
+          );
+        }
+
+        disconnect();
+
+        throw err;
       }
     },
-    [rejectPendingRequests]
+    [
+      activeAccountId,
+      disconnect,
+      fetchBalanceFor,
+      sendRequest,
+    ]
   );
 
-  /*
-   * Subscribe to real tick data.
-   */
   const subscribeTicks = useCallback(
-    async (symbol, onTick) => {
+    async (symbol) => {
       if (!symbol) {
-        throw new Error('A Deriv symbol is required.');
+        throw new Error('Symbol is required');
       }
-
-      if (typeof onTick !== 'function') {
-        throw new Error('A tick callback is required.');
-      }
-
-      // Remove the previous tick subscription first.
-      const previous =
-        tickSubscriptionRef.current;
-
-      if (
-        previous.subscriptionId &&
-        wsRef.current?.readyState === WebSocket.OPEN
-      ) {
-        try {
-          wsRef.current.send(
-            JSON.stringify({
-              forget: previous.subscriptionId,
-            })
-          );
-        } catch {}
-      }
-
-      tickSubscriptionRef.current = {
-        symbol,
-        subscriptionId: null,
-        onTick,
-      };
 
       const response = await sendRequest({
         ticks: symbol,
         subscribe: 1,
       });
 
-      /*
-       * The first tick response contains the subscription ID.
-       * The same subscription continues producing tick messages.
-       */
-      const subscriptionId =
-        response?.subscription?.id ||
-        response?.tick?.subscription?.id ||
-        null;
-
-      tickSubscriptionRef.current = {
+      subscriptionsRef.current.set(
         symbol,
-        subscriptionId,
-        onTick,
-      };
+        response?.subscription?.id || true
+      );
+
+      if (response?.tick && mountedRef.current) {
+        setTicks((current) => ({
+          ...current,
+          [symbol]: response.tick,
+        }));
+      }
 
       return response;
     },
     [sendRequest]
   );
 
-  const unsubscribeTicks = useCallback(() => {
-    const subscription =
-      tickSubscriptionRef.current;
+  const unsubscribeTicks = useCallback(
+    async (subscriptionId) => {
+      if (!subscriptionId) return;
 
-    if (
-      subscription.subscriptionId &&
-      wsRef.current?.readyState === WebSocket.OPEN
-    ) {
-      try {
-        wsRef.current.send(
-          JSON.stringify({
-            forget: subscription.subscriptionId,
-          })
-        );
-      } catch {}
-    }
-
-    tickSubscriptionRef.current = {
-      symbol: null,
-      subscriptionId: null,
-      onTick: null,
-    };
-  }, []);
-
-  /*
-   * Ask Deriv which symbols are currently active.
-   * This avoids hardcoding an old Volatility-75 symbol.
-   */
-  const getActiveSymbols = useCallback(async () => {
-    const response = await sendRequest({
-      active_symbols: 'brief',
-    });
-
-    return Array.isArray(response?.active_symbols)
-      ? response.active_symbols
-      : [];
-  }, [sendRequest]);
-
-  /*
-   * Get a REAL price proposal from Deriv.
-   */
-  const requestProposal = useCallback(
-    async (proposalParams) => {
-      const response = await sendRequest(
-        {
-          proposal: 1,
-          ...proposalParams,
-        },
-        15000
-      );
-
-      if (!response?.proposal) {
-        throw new Error(
-          'Deriv did not return a valid trade proposal.'
-        );
-      }
-
-      return response.proposal;
+      return sendRequest({
+        forget: subscriptionId,
+      });
     },
     [sendRequest]
   );
 
-  /*
-   * BUY a contract using the actual proposal ID.
-   */
+  const getActiveSymbols = useCallback(
+    async (market = 'synthetic_index') => {
+      return sendRequest({
+        active_symbols: 'brief',
+        product_type: 'basic',
+      });
+    },
+    [sendRequest]
+  );
+
+  const requestProposal = useCallback(
+    async (params) => {
+      if (!params) {
+        throw new Error(
+          'Proposal parameters are required'
+        );
+      }
+
+      const {
+        amount,
+        basis = 'stake',
+        contract_type,
+        currency,
+        duration,
+        duration_unit,
+        symbol,
+        underlying_symbol,
+        barrier,
+        barrier2,
+        multiplier,
+        limit_order,
+        passthrough,
+      } = params;
+
+      if (!amount) {
+        throw new Error(
+          'Trade amount is required'
+        );
+      }
+
+      if (!contract_type) {
+        throw new Error(
+          'Contract type is required'
+        );
+      }
+
+      const actualSymbol =
+        underlying_symbol || symbol;
+
+      if (!actualSymbol) {
+        throw new Error(
+          'Trading symbol is required'
+        );
+      }
+
+      const payload = {
+        proposal: 1,
+        amount: Number(amount),
+        basis,
+        contract_type,
+        currency: currency || balance?.currency || 'USD',
+        underlying_symbol: actualSymbol,
+        subscribe: 1,
+      };
+
+      if (
+        duration !== undefined &&
+        duration !== null
+      ) {
+        payload.duration = Number(duration);
+      }
+
+      if (duration_unit) {
+        payload.duration_unit = duration_unit;
+      }
+
+      if (
+        barrier !== undefined &&
+        barrier !== null &&
+        barrier !== ''
+      ) {
+        payload.barrier = String(barrier);
+      }
+
+      if (
+        barrier2 !== undefined &&
+        barrier2 !== null &&
+        barrier2 !== ''
+      ) {
+        payload.barrier2 = String(barrier2);
+      }
+
+      if (
+        multiplier !== undefined &&
+        multiplier !== null
+      ) {
+        payload.multiplier = Number(multiplier);
+      }
+
+      if (limit_order) {
+        payload.limit_order = limit_order;
+      }
+
+      if (passthrough) {
+        payload.passthrough = passthrough;
+      }
+
+      const response = await sendRequest(
+        payload,
+        15000
+      );
+
+      if (response?.proposal?.id) {
+        return response;
+      }
+
+      throw new Error(
+        response?.error?.message ||
+          'Deriv did not return a valid proposal'
+      );
+    },
+    [balance?.currency, sendRequest]
+  );
+
   const buyContract = useCallback(
     async (proposalId, price) => {
       if (!proposalId) {
         throw new Error(
-          'A valid Deriv proposal ID is required before buying.'
+          'Proposal ID is required to buy'
         );
       }
 
       if (
         price === undefined ||
         price === null ||
-        !Number.isFinite(Number(price))
+        Number(price) <= 0
       ) {
         throw new Error(
-          'A valid proposal price is required before buying.'
+          'A valid proposal price is required'
         );
       }
 
@@ -592,259 +701,297 @@ export function DerivProvider({ children }) {
           buy: String(proposalId),
           price: Number(price),
         },
-        15000
+        20000
       );
 
       if (!response?.buy?.contract_id) {
         throw new Error(
-          'Deriv did not confirm the purchase with a contract ID.'
+          response?.error?.message ||
+            'Deriv did not return a contract ID'
         );
       }
 
-      return response.buy;
+      const contractId = String(
+        response.buy.contract_id
+      );
+
+      // Immediately subscribe to the real contract.
+      await subscribeContract(contractId);
+
+      return response;
     },
     [sendRequest]
   );
 
-  /*
-   * Subscribe to REAL contract status/P&L.
-   */
   const subscribeContract = useCallback(
-    async (contractId, onUpdate) => {
+    async (contractId, callback) => {
       if (!contractId) {
         throw new Error(
-          'A contract ID is required.'
-        );
-      }
-
-      if (typeof onUpdate !== 'function') {
-        throw new Error(
-          'A contract update callback is required.'
+          'Contract ID is required'
         );
       }
 
       const id = String(contractId);
 
-      // Remove any existing handler for this contract.
-      contractSubscriptionsRef.current.delete(id);
-
-      contractSubscriptionsRef.current.set(id, {
-        subscriptionId: null,
-        onUpdate,
-      });
-
-      try {
-        const response = await sendRequest({
-          proposal_open_contract: 1,
-          contract_id: id,
-          subscribe: 1,
-        });
-
-        const subscriptionId =
-          response?.subscription?.id ||
-          response?.proposal_open_contract?.subscription?.id ||
-          null;
-
-        const existing =
-          contractSubscriptionsRef.current.get(id);
-
-        if (existing) {
-          contractSubscriptionsRef.current.set(id, {
-            ...existing,
-            subscriptionId,
-          });
-        }
-
-        if (response?.proposal_open_contract) {
-          onUpdate(
-            response.proposal_open_contract,
-            response
+      if (callback) {
+        if (
+          !contractSubscriptionsRef.current.has(id)
+        ) {
+          contractSubscriptionsRef.current.set(
+            id,
+            new Set()
           );
         }
 
-        return response.proposal_open_contract;
-      } catch (err) {
-        contractSubscriptionsRef.current.delete(id);
-        throw err;
+        contractSubscriptionsRef.current
+          .get(id)
+          .add(callback);
       }
-    },
-    [sendRequest]
-  );
 
-  /*
-   * Sell an open contract before expiry.
-   * Deriv decides whether the contract is currently sellable.
-   */
-  const sellContract = useCallback(
-    async (contractId) => {
-      if (!contractId) {
-        throw new Error(
-          'A contract ID is required to sell.'
+      const response = await sendRequest({
+        proposal_open_contract: 1,
+        contract_id: Number(id),
+        subscribe: 1,
+      });
+
+      if (
+        response?.proposal_open_contract &&
+        callback
+      ) {
+        callback(
+          response.proposal_open_contract
         );
       }
 
-      return sendRequest(
+      return response;
+    },
+    [sendRequest]
+  );
+
+  const unsubscribeContract = useCallback(
+    async (contractId, callback) => {
+      if (!contractId) return;
+
+      const id = String(contractId);
+      const callbacks =
+        contractSubscriptionsRef.current.get(id);
+
+      if (callbacks && callback) {
+        callbacks.delete(callback);
+      }
+
+      if (
+        callbacks &&
+        callbacks.size === 0
+      ) {
+        contractSubscriptionsRef.current.delete(id);
+      }
+
+      return true;
+    },
+    []
+  );
+
+  const sellContract = useCallback(
+    async (contractId, bidPrice = null) => {
+      if (!contractId) {
+        throw new Error(
+          'Contract ID is required to sell'
+        );
+      }
+
+      let price = Number(bidPrice);
+
+      // If the UI did not supply bid_price, ask Deriv
+      // for the latest open-contract state first.
+      if (!Number.isFinite(price) || price < 0) {
+        const latest =
+          await sendRequest({
+            proposal_open_contract: 1,
+            contract_id: Number(contractId),
+          });
+
+        price = Number(
+          latest?.proposal_open_contract?.bid_price
+        );
+      }
+
+      if (!Number.isFinite(price) || price < 0) {
+        throw new Error(
+          'Deriv did not provide a valid sell price'
+        );
+      }
+
+      const response = await sendRequest(
         {
           sell: String(contractId),
-          price: 0,
+          price,
         },
-        15000
+        20000
       );
+
+      if (!response?.sell) {
+        throw new Error(
+          response?.error?.message ||
+            'Deriv did not confirm the contract sale'
+        );
+      }
+
+      return response;
     },
     [sendRequest]
   );
 
-  /*
-   * Fetch actual closed-trade history from Deriv.
-   */
-  const getProfitHistory = useCallback(
-    async ({
-      limit = 20,
-      offset = 0,
-      sort = 'DESC',
-    } = {}) => {
-      const response = await sendRequest({
-        profit_table: 1,
-        limit,
-        offset,
-        sort,
-      });
-
-      return response?.profit_table || {
-        count: 0,
-        transactions: [],
-      };
-    },
-    [sendRequest]
-  );
-
-  /*
-   * Preserve portfolio functionality and make it available
-   * to trading screens as well.
-   */
   const getPortfolio = useCallback(async () => {
     const response = await sendRequest({
       portfolio: 1,
     });
 
-    return response?.portfolio || null;
+    const contracts =
+      response?.portfolio?.contracts || [];
+
+    if (mountedRef.current) {
+      setPortfolio(contracts);
+    }
+
+    return response;
   }, [sendRequest]);
 
-  useEffect(() => {
-    let cancelled = false;
+  const getProfitHistory = useCallback(
+    async (limit = 50) => {
+      return sendRequest({
+        profit_table: 1,
+        description: 1,
+        limit: Number(limit),
+      });
+    },
+    [sendRequest]
+  );
 
-    (async () => {
-      try {
-        const sessionResponse = await fetch(
-          '/api/session',
-          {
-            cache: 'no-store',
-          }
+  const refreshBalance = useCallback(async () => {
+    const response = await sendRequest({
+      balance: 1,
+    });
+
+    if (response?.balance && mountedRef.current) {
+      const balanceData = response.balance;
+
+      setBalance(balanceData);
+
+      if (activeAccountId) {
+        setBalances((current) => ({
+          ...current,
+          [activeAccountId]: balanceData,
+        }));
+      }
+    }
+
+    return response;
+  }, [activeAccountId, sendRequest]);
+
+  const switchAccount = useCallback(
+    async (accountId) => {
+      if (!accountId) {
+        throw new Error(
+          'Account ID is required'
         );
-
-        const session =
-          await sessionResponse.json();
-
-        if (
-          !session.authenticated ||
-          cancelled
-        ) {
-          return;
-        }
-
-        await loadAccounts();
-      } catch {}
-    })();
-
-    return () => {
-      cancelled = true;
-
-      if (wsRef.current) {
-        try {
-          wsRef.current.close();
-        } catch {}
       }
 
-      rejectPendingRequests(
-        'Deriv provider was unmounted.'
-      );
-    };
-  }, [loadAccounts, rejectPendingRequests]);
+      setActiveAccountId(accountId);
 
-  useEffect(() => {
-    if (activeAccountId) {
-      connect(activeAccountId);
-    }
-  }, [activeAccountId, connect]);
+      await connect(accountId);
 
-  const login = useCallback(() => {
-    window.location.assign(
-      '/api/auth/login'
-    );
+      return accountId;
+    },
+    [connect]
+  );
+
+  const refreshAccounts = useCallback(async () => {
+    return loadAccounts();
+  }, [loadAccounts]);
+
+  const login = useCallback(async () => {
+    window.location.href = '/api/auth/login';
   }, []);
 
   const logout = useCallback(async () => {
-    unsubscribeTicks();
+    disconnect();
 
-    if (wsRef.current) {
-      try {
-        wsRef.current.close();
-      } catch {}
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+    } catch (err) {
+      console.warn(
+        'Logout request failed:',
+        err
+      );
     }
 
-    await fetch('/api/auth/logout', {
-      method: 'POST',
-    });
+    if (mountedRef.current) {
+      setAccounts([]);
+      setActiveAccountId(null);
+      setBalance(null);
+      setBalances({});
+      setPortfolio([]);
+      setTicks({});
+      setError(null);
+      setStatus('disconnected');
+    }
 
-    setAccounts([]);
-    setActiveAccountId(null);
-    setBalance(null);
-    setBalances({});
-    setStatus('disconnected');
-    setError(null);
+    window.location.href = '/';
+  }, [disconnect]);
 
-    window.location.assign('/');
-  }, [unsubscribeTicks]);
+  useEffect(() => {
+    mountedRef.current = true;
 
-  const activeAccount =
-    accounts.find(
-      (account) =>
-        account.account_id === activeAccountId
-    ) || null;
+    loadAccounts().catch(() => {});
+
+    return () => {
+      mountedRef.current = false;
+      disconnect();
+    };
+  }, [disconnect, loadAccounts]);
 
   const value = {
     accounts,
-    activeAccount,
     activeAccountId,
-
-    // Existing balance functionality.
     balance,
     balances,
-
-    // Existing connection state.
     status,
     error,
-    isLoggedIn: accounts.length > 0,
+    ticks,
+    portfolio,
 
-    // Existing auth/account controls.
+    connect,
+    disconnect,
+
     login,
     logout,
-    switchAccount: setActiveAccountId,
-    refreshAccounts: loadAccounts,
 
-    // Existing WebSocket exposure.
-    websocket: wsRef.current,
+    loadAccounts,
+    refreshAccounts,
 
-    // New REAL market/trading functionality.
+    switchAccount,
+
     subscribeTicks,
     unsubscribeTicks,
+
     getActiveSymbols,
+
     requestProposal,
     buyContract,
+
     subscribeContract,
+    unsubscribeContract,
+
     sellContract,
-    getProfitHistory,
+
     getPortfolio,
+    getProfitHistory,
+    refreshBalance,
+
+    sendRequest,
   };
 
   return (
@@ -855,13 +1002,15 @@ export function DerivProvider({ children }) {
 }
 
 export function useDeriv() {
-  const ctx = useContext(DerivContext);
+  const context = useContext(DerivContext);
 
-  if (!ctx) {
+  if (!context) {
     throw new Error(
-      'useDeriv must be used inside <DerivProvider>'
+      'useDeriv must be used inside DerivProvider'
     );
   }
 
-  return ctx;
+  return context;
 }
+
+export default DerivContext;
