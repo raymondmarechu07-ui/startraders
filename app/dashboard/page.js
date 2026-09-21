@@ -54,6 +54,7 @@ export default function DashboardPage() {
   const [adviceIndex, setAdviceIndex] = useState(0);
   const [execSpeed, setExecSpeed] = useState('normal');
   const [clock, setClock] = useState('');
+  const [tradeStats, setTradeStats] = useState({ closed: 0, open: 0 });
 
   const accountId = activeAccount?.account_id || activeAccount?.loginid || 'Trader';
   const accountType = activeAccount?.account_type === 'real' ? 'Real' : 'Demo';
@@ -82,6 +83,36 @@ export default function DashboardPage() {
     const interval = setInterval(() => setAdviceIndex((i) => (i + 1) % TRADING_ADVICE.length), 9000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (status !== 'connected') return undefined;
+
+    let cancelled = false;
+
+    const refreshTradeStats = async () => {
+      try {
+        const [history, portfolio] = await Promise.all([
+          getProfitHistory({ limit: 1, offset: 0, sort: 'DESC' }),
+          getPortfolio(),
+        ]);
+
+        if (cancelled) return;
+
+        const closed = Number(history?.count ?? history?.transactions?.length ?? 0);
+        const open = Array.isArray(portfolio?.contracts) ? portfolio.contracts.length : 0;
+        setTradeStats({ closed: Number.isFinite(closed) ? closed : 0, open });
+      } catch {
+        if (!cancelled) setTradeStats({ closed: 0, open: 0 });
+      }
+    };
+
+    refreshTradeStats();
+    const interval = setInterval(refreshTradeStats, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [status, getProfitHistory, getPortfolio]);
 
   const handleQuickAction = (action) => {
     if (action === 'upload') alert('Upload Bot will be connected to the bot upload system when that feature is enabled.');
@@ -119,6 +150,39 @@ export default function DashboardPage() {
             <h1><span className="hello-accent">Hello,</span> {accountId}<span className="hello-wave">👋</span></h1>
             <p className="hero-quote" key={adviceIndex}>“{TRADING_ADVICE[adviceIndex]}”</p>
             <div className="hero-status"><span className="status-dot"/> Markets live <span className="status-separator"/> Trading workspace ready</div>
+          </div>
+        </section>
+
+        <section className="live-account-section">
+          <div className="live-account-heading">
+            <div>
+              <div className="section-eyebrow orange-accent">LIVE ACCOUNT</div>
+              <h2>Account Overview</h2>
+              <p className="section-subtitle">Your StarTraders dashboard stays synced with the connected Deriv account.</p>
+            </div>
+            <div className="account-sync-pill"><span className="account-sync-dot" /> {status === 'connected' ? 'LIVE SYNC' : status.toUpperCase()}</div>
+          </div>
+          <div className="live-account-grid">
+            <div className="live-account-card balance-card">
+              <span className="live-card-label">CURRENT BALANCE</span>
+              <strong>{balance ? Number(balance.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—.—'}</strong>
+              <small>{balance?.currency || activeAccount?.currency || 'USD'}</small>
+            </div>
+            <div className="live-account-card">
+              <span className="live-card-label">ACCOUNT</span>
+              <strong>{accountType}</strong>
+              <small>{activeAccount?.account_id || 'Not connected'}</small>
+            </div>
+            <div className="live-account-card">
+              <span className="live-card-label">CLOSED TRADES</span>
+              <strong>{tradeStats.closed.toLocaleString()}</strong>
+              <small>Recorded in Deriv history</small>
+            </div>
+            <div className="live-account-card">
+              <span className="live-card-label">OPEN TRADES</span>
+              <strong>{tradeStats.open.toLocaleString()}</strong>
+              <small>Currently active</small>
+            </div>
           </div>
         </section>
 
