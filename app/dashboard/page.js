@@ -15,6 +15,7 @@ const MARKETS = [
 ];
 
 const QUICK_ACTIONS = [
+  { title: 'Manual Trader', description: 'Open the live StarTraders trading workspace.', icon: 'chart', color: 'green', href: '/manual-trader' },
   { title: 'Upload Bot', description: 'Import an XML bot from your computer.', icon: 'folder', color: 'orange', action: 'upload' },
   { title: 'Free Bots', description: 'Browse ready-made trading strategies.', icon: 'bot', color: 'green', href: '/free-bots' },
   { title: 'Bot Editor', description: 'Build a custom bot with the visual editor.', icon: 'puzzle', color: 'purple', href: '/bot-builder' },
@@ -31,6 +32,7 @@ const TRADING_ADVICE = [
 
 function QuickIcon({ type }) {
   const paths = {
+    chart: <><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-5 3 3 5-7"/></>,
     folder: <><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6.5A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="M3 9h18"/></>,
     bot: <><rect x="5" y="7" width="14" height="12" rx="3"/><path d="M9 7V5a3 3 0 0 1 6 0v2M9 13h.01M15 13h.01M9 16h6"/></>,
     puzzle: <path d="M9 4a2 2 0 1 1 4 0v2h2a2 2 0 1 1 0 4h-2v3h3a2 2 0 1 1 4 0v3h-3a2 2 0 1 1-4 0v-3H9a2 2 0 1 1 0-4h2V6H9z"/>,
