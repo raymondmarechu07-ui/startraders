@@ -7,14 +7,46 @@ import TabNav from '@/components/TabNav';
 const DTRADER_URL = 'https://startraders-dtrader.pages.dev';
 
 export default function ManualTraderPage() {
-  const [redirecting, setRedirecting] = useState(true);
+  const [message, setMessage] = useState('Connecting your StarTraders account…');
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      window.location.assign(DTRADER_URL);
-    }, 900);
+    let cancelled = false;
 
-    return () => window.clearTimeout(timer);
+    const openTrader = async () => {
+      try {
+        setMessage('Preparing secure trading session…');
+
+        const response = await fetch('/api/auth/handoff', {
+          method: 'POST',
+          cache: 'no-store',
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data?.code) {
+          throw new Error(data?.error || 'Your StarTraders session is not connected.');
+        }
+
+        if (cancelled) return;
+
+        setMessage('Opening your live trading workspace…');
+
+        const target = new URL(DTRADER_URL);
+        target.searchParams.set('st_sso', data.code);
+        window.location.replace(target.toString());
+      } catch (error) {
+        if (cancelled) return;
+        setFailed(true);
+        setMessage(error?.message || 'Could not connect the trading workspace.');
+      }
+    };
+
+    openTrader();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -99,42 +131,41 @@ export default function ManualTraderPage() {
               lineHeight: 1.7,
             }}
           >
-            Opening the StarTraders live trading workspace with real-time
-            Deriv charts, markets, contracts and account trading.
+            {message}
           </p>
 
-          <div
-            style={{
-              width: 34,
-              height: 34,
-              margin: '0 auto 18px',
-              borderRadius: '50%',
-              border: '3px solid rgba(255,255,255,.12)',
-              borderTopColor: '#00f5a0',
-              borderRightColor: '#00c6ff',
-              animation: 'st-spin 900ms linear infinite',
-            }}
-          />
+          {!failed && (
+            <div
+              style={{
+                width: 34,
+                height: 34,
+                margin: '0 auto 18px',
+                borderRadius: '50%',
+                border: '3px solid rgba(255,255,255,.12)',
+                borderTopColor: '#00f5a0',
+                borderRightColor: '#00c6ff',
+                animation: 'st-spin 900ms linear infinite',
+              }}
+            />
+          )}
 
-          <div style={{ color: '#c7d6da', fontSize: 13 }}>
-            {redirecting ? 'Opening Manual Trader…' : 'Ready'}
-          </div>
-
-          <a
-            href={DTRADER_URL}
-            style={{
-              display: 'inline-block',
-              marginTop: 24,
-              padding: '11px 18px',
-              borderRadius: 12,
-              color: '#03110d',
-              background: 'linear-gradient(135deg,#00f5a0,#00c6ff)',
-              fontWeight: 800,
-              textDecoration: 'none',
-            }}
-          >
-            Open Manual Trader
-          </a>
+          {failed && (
+            <a
+              href="/dashboard"
+              style={{
+                display: 'inline-block',
+                marginTop: 8,
+                padding: '11px 18px',
+                borderRadius: 12,
+                color: '#03110d',
+                background: 'linear-gradient(135deg,#00f5a0,#00c6ff)',
+                fontWeight: 800,
+                textDecoration: 'none',
+              }}
+            >
+              Return to Dashboard
+            </a>
+          )}
 
           <style jsx>{`
             @keyframes st-spin {
