@@ -46,7 +46,7 @@ function ArrowIcon() {
 }
 
 export default function DashboardPage() {
-  const { activeAccount } = useDeriv();
+  const { activeAccount, balance, status, getProfitHistory, getPortfolio } = useDeriv();
   const [markets, setMarkets] = useState(MARKETS.map((m) => ({ ...m, price: m.base, change: Math.random() * 2 - 1 })));
   const [selectedMarket, setSelectedMarket] = useState('Vol 75');
   const [running, setRunning] = useState(false);
