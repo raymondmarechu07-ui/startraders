@@ -7,16 +7,14 @@ import TabNav from '@/components/TabNav';
 const DTRADER_URL = 'https://startraders-dtrader.pages.dev';
 
 export default function ManualTraderPage() {
-  const [message, setMessage] = useState('Connecting your StarTraders account…');
-  const [failed, setFailed] = useState(false);
+  const [traderUrl, setTraderUrl] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
 
-    const openTrader = async () => {
+    const prepareTrader = async () => {
       try {
-        setMessage('Preparing secure trading session…');
-
         const response = await fetch('/api/auth/handoff', {
           method: 'POST',
           cache: 'no-store',
@@ -30,19 +28,22 @@ export default function ManualTraderPage() {
 
         if (cancelled) return;
 
-        setMessage('Opening your live trading workspace…');
-
         const target = new URL(DTRADER_URL);
         target.searchParams.set('st_sso', data.code);
-        window.location.replace(target.toString());
-      } catch (error) {
-        if (cancelled) return;
-        setFailed(true);
-        setMessage(error?.message || 'Could not connect the trading workspace.');
+        target.searchParams.set('chart_type', 'area');
+        target.searchParams.set('interval', '1t');
+        target.searchParams.set('symbol', '1HZ100V');
+        target.searchParams.set('trade_type', 'accumulator');
+
+        setTraderUrl(target.toString());
+      } catch (err) {
+        if (!cancelled) {
+          setError(err?.message || 'Could not connect the Manual Trader.');
+        }
       }
     };
 
-    openTrader();
+    prepareTrader();
 
     return () => {
       cancelled = true;
@@ -53,8 +54,7 @@ export default function ManualTraderPage() {
     <div
       style={{
         minHeight: '100vh',
-        background:
-          'radial-gradient(circle at 20% 10%, rgba(0,245,160,.12), transparent 30%), radial-gradient(circle at 85% 20%, rgba(0,198,255,.10), transparent 30%), #050b10',
+        background: '#050b10',
         color: '#f5fffc',
       }}
     >
@@ -63,108 +63,140 @@ export default function ManualTraderPage() {
 
       <main
         style={{
-          minHeight: 'calc(100vh - 120px)',
-          display: 'grid',
-          placeItems: 'center',
-          padding: '40px 20px',
+          padding: '18px 18px 28px',
+          maxWidth: 1700,
+          margin: '0 auto',
         }}
       >
-        <section
+        <div
           style={{
-            width: 'min(620px, 100%)',
-            textAlign: 'center',
-            padding: '46px 32px',
-            borderRadius: 24,
-            border: '1px solid rgba(0,245,160,.18)',
-            background: 'rgba(7,18,24,.78)',
-            boxShadow: '0 24px 80px rgba(0,0,0,.38)',
-            backdropFilter: 'blur(16px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+            marginBottom: 14,
+            padding: '0 4px',
           }}
         >
-          <div
-            style={{
-              width: 76,
-              height: 76,
-              margin: '0 auto 22px',
-              display: 'grid',
-              placeItems: 'center',
-              borderRadius: 22,
-              background: 'linear-gradient(135deg,#00f5a0,#00c6ff)',
-              color: '#03110d',
-              fontSize: 25,
-              fontWeight: 900,
-              letterSpacing: -1,
-              boxShadow: '0 0 34px rgba(0,245,160,.24)',
-            }}
-          >
-            ST
-          </div>
-
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 800,
-              letterSpacing: 2.4,
-              textTransform: 'uppercase',
-              color: '#00e6a0',
-              marginBottom: 10,
-            }}
-          >
-            Star Traders
-          </div>
-
-          <h1
-            style={{
-              margin: 0,
-              fontSize: 'clamp(26px, 5vw, 38px)',
-              lineHeight: 1.1,
-            }}
-          >
-            Manual Trader
-          </h1>
-
-          <p
-            style={{
-              margin: '16px auto 28px',
-              maxWidth: 480,
-              color: '#9fb2b9',
-              lineHeight: 1.7,
-            }}
-          >
-            {message}
-          </p>
-
-          {!failed && (
+          <div>
             <div
               style={{
-                width: 34,
-                height: 34,
-                margin: '0 auto 18px',
-                borderRadius: '50%',
-                border: '3px solid rgba(255,255,255,.12)',
-                borderTopColor: '#00f5a0',
-                borderRightColor: '#00c6ff',
-                animation: 'st-spin 900ms linear infinite',
-              }}
-            />
-          )}
-
-          {failed && (
-            <a
-              href="/dashboard"
-              style={{
-                display: 'inline-block',
-                marginTop: 8,
-                padding: '11px 18px',
-                borderRadius: 12,
-                color: '#03110d',
-                background: 'linear-gradient(135deg,#00f5a0,#00c6ff)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                fontSize: 20,
                 fontWeight: 800,
-                textDecoration: 'none',
               }}
             >
-              Return to Dashboard
-            </a>
+              <span
+                style={{
+                  width: 30,
+                  height: 30,
+                  display: 'grid',
+                  placeItems: 'center',
+                  borderRadius: 9,
+                  background: 'linear-gradient(135deg,#00f5a0,#00c6ff)',
+                  color: '#03110d',
+                  fontSize: 11,
+                  fontWeight: 900,
+                }}
+              >
+                ST
+              </span>
+              Manual Trader
+            </div>
+            <div style={{ marginTop: 4, color: '#80959d', fontSize: 12 }}>
+              Live Deriv trading workspace
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 7,
+              padding: '7px 11px',
+              borderRadius: 999,
+              border: '1px solid rgba(0,245,160,.16)',
+              background: 'rgba(0,245,160,.06)',
+              color: '#74f3c0',
+              fontSize: 11,
+              fontWeight: 700,
+            }}
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: '#00e6a0',
+                boxShadow: '0 0 10px #00e6a0',
+              }}
+            />
+            LIVE TRADING
+          </div>
+        </div>
+
+        <section
+          style={{
+            width: '100%',
+            height: 'calc(100vh - 178px)',
+            minHeight: 650,
+            borderRadius: 14,
+            overflow: 'hidden',
+            border: '1px solid rgba(255,255,255,.09)',
+            background: '#fff',
+            boxShadow: '0 24px 70px rgba(0,0,0,.35)',
+            position: 'relative',
+          }}
+        >
+          {traderUrl ? (
+            <iframe
+              title="Star Traders Manual Trader"
+              src={traderUrl}
+              allow="clipboard-read; clipboard-write; fullscreen"
+              style={{
+                width: '100%',
+                height: '100%',
+                border: 0,
+                display: 'block',
+                background: '#fff',
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'grid',
+                placeItems: 'center',
+                background:
+                  'radial-gradient(circle at 50% 35%, rgba(0,245,160,.09), transparent 32%), #071015',
+              }}
+            >
+              <div style={{ textAlign: 'center', padding: 30 }}>
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    margin: '0 auto 18px',
+                    borderRadius: '50%',
+                    border: '3px solid rgba(255,255,255,.12)',
+                    borderTopColor: '#00f5a0',
+                    borderRightColor: '#00c6ff',
+                    animation: 'st-spin 900ms linear infinite',
+                  }}
+                />
+                <div style={{ fontWeight: 700 }}>
+                  {error || 'Connecting your StarTraders account…'}
+                </div>
+                {!error && (
+                  <div style={{ color: '#7f9299', fontSize: 12, marginTop: 7 }}>
+                    Preparing the live trading workspace
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           <style jsx>{`
