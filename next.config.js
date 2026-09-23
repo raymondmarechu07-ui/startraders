@@ -5,11 +5,11 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-        source: '/manual-trader-engine',
+        source: '/manual-trader',
         destination: '/manual-trader-engine/index.html',
       },
       {
-        source: '/manual-trader-engine/',
+        source: '/manual-trader/',
         destination: '/manual-trader-engine/index.html',
       },
     ];
