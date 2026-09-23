@@ -1,73 +1,46 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import UtilityBar from '@/components/UtilityBar';
 import TabNav from '@/components/TabNav';
 
 export default function ManualTraderPage() {
-  const [assets, setAssets] = useState(null);
+  const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
-  const loadedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    fetch('/manual-trader-manifest.json', { cache: 'no-store' })
-      .then((response) => {
-        if (!response.ok) throw new Error(`DTrader assets are unavailable (${response.status}).`);
-        return response.json();
-      })
-      .then((manifest) => {
-        if (!cancelled) setAssets(manifest);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.message || 'Manual Trader could not load.');
-      });
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/accounts', {
+          cache: 'no-store',
+          credentials: 'same-origin',
+        });
+
+        if (response.status === 401) {
+          window.location.replace('/api/auth/login');
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error('Your Deriv connection could not be verified.');
+        }
+
+        if (!cancelled) setReady(true);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err.message || 'Manual Trader could not connect to your Deriv account.');
+        }
+      }
+    };
+
+    checkSession();
 
     return () => {
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    if (!assets || loadedRef.current) return;
-    loadedRef.current = true;
-
-    document.querySelectorAll('link[data-startraders-dtrader]').forEach((node) => node.remove());
-
-    (assets.styles || []).forEach((href) => {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = href;
-      link.dataset.startradersDtrader = '1';
-      document.head.appendChild(link);
-    });
-
-    let cancelled = false;
-
-    const loadScripts = async () => {
-      for (const src of assets.scripts || []) {
-        if (cancelled) return;
-
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = src;
-          script.async = false;
-          script.onload = resolve;
-          script.onerror = () => reject(new Error(`DTrader bundle failed to load: ${src}`));
-          document.body.appendChild(script);
-        });
-      }
-    };
-
-    loadScripts().catch((err) => {
-      if (!cancelled) setError(err.message || 'Manual Trader could not start.');
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [assets]);
 
   return (
     <div style={{ minHeight: '100vh', background: '#071015' }}>
@@ -87,28 +60,6 @@ export default function ManualTraderPage() {
             position: 'relative',
           }}
         >
-          <style>{`
-            #derivatives_trader {
-              width: 100%;
-              height: 100%;
-              min-height: 620px;
-            }
-            #derivatives_trader .sidebar {
-              display: none !important;
-            }
-            #derivatives_trader .app-shell {
-              width: 100%;
-              height: 100%;
-              min-height: 620px;
-            }
-            #derivatives_trader .app-shell__main-content {
-              width: 100%;
-              min-width: 0;
-              min-height: 0;
-              margin: 0 !important;
-            }
-          `}</style>
-
           {error ? (
             <div
               style={{
@@ -121,12 +72,35 @@ export default function ManualTraderPage() {
               }}
             >
               <div>
-                <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Manual Trader is loading</div>
+                <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Manual Trader could not start</div>
                 <div style={{ color: '#9aa8b2', fontSize: 13 }}>{error}</div>
               </div>
             </div>
+          ) : ready ? (
+            <iframe
+              title="Star Traders Manual Trader"
+              src="/manual-trader-engine/?chart_type=area&interval=1t&symbol=1HZ100V&trade_type=accumulator"
+              allow="clipboard-read; clipboard-write; fullscreen; autoplay"
+              style={{
+                width: '100%',
+                height: '100%',
+                border: 0,
+                display: 'block',
+                background: '#0b1117',
+              }}
+            />
           ) : (
-            <div id="derivatives_trader" />
+            <div
+              style={{
+                height: '100%',
+                display: 'grid',
+                placeItems: 'center',
+                color: '#9aa8b2',
+                fontSize: 14,
+              }}
+            >
+              Connecting Star Traders to your Deriv account…
+            </div>
           )}
         </section>
       </main>
