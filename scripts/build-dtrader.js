@@ -4,7 +4,7 @@ const { spawnSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
 const tempDir = path.join(root, '.dtrader-build');
-const outputDir = path.join(root, 'public', 'manual-trader');
+const outputDir = path.join(root, 'public', 'manual-trader-engine');
 const dtraderRepo = 'https://github.com/raymondmarechu07-ui/startraders-dtrader.git';
 
 const run = (command, args, cwd, env = process.env) => {
@@ -37,7 +37,7 @@ try {
   console.log('[StarTraders] Generating StarTraders DTrader theme...');
   run(npm, ['run', 'generate:colors'], tempDir);
 
-  console.log('[StarTraders] Building DTrader directly under /manual-trader/...');
+  console.log('[StarTraders] Building DTrader as the same-origin Manual Trader engine...');
   run(
     npm,
     ['run', 'build:all'],
@@ -45,7 +45,7 @@ try {
     {
       ...process.env,
       OAUTH_CLIENT_ID: process.env.OAUTH_CLIENT_ID || process.env.DERIV_CLIENT_ID || '',
-      DTRADER_BASE_PATH: 'manual-trader',
+      DTRADER_BASE_PATH: 'manual-trader-engine',
       DTRADER_EMBEDDED: '1',
       NODE_ENV: 'production',
     }
@@ -59,23 +59,7 @@ try {
 
   fs.cpSync(builtDist, outputDir, { recursive: true });
 
-  const html = fs.readFileSync(path.join(builtDist, 'index.html'), 'utf8');
-  const scripts = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map(match => match[1]);
-  const styles = [...html.matchAll(/<link[^>]+href="([^"]+\.css)"/g)].map(match => match[1]);
-
-  fs.writeFileSync(
-    path.join(root, 'public', 'manual-trader-manifest.json'),
-    JSON.stringify(
-      {
-        scripts: scripts.map(src => `/manual-trader/${src.replace(/^\//, '')}`),
-        styles: styles.map(href => `/manual-trader/${href.replace(/^\//, '')}`),
-      },
-      null,
-      2
-    )
-  );
-
-  console.log('[StarTraders] DTrader engine installed at public/manual-trader/.');
+  console.log('[StarTraders] DTrader engine installed at public/manual-trader-engine/.');
 } finally {
   fs.rmSync(tempDir, { recursive: true, force: true });
 }
