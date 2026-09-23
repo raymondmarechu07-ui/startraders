@@ -13,18 +13,19 @@ export default function ManualTraderPage() {
 
     const checkSession = async () => {
       try {
-        const response = await fetch('/api/accounts', {
+        const response = await fetch('/api/auth/status', {
           cache: 'no-store',
           credentials: 'same-origin',
         });
 
-        if (response.status === 401) {
-          window.location.replace('/api/auth/login');
-          return;
+        if (!response.ok) {
+          throw new Error('Your StarTraders session could not be verified.');
         }
 
-        if (!response.ok) {
-          throw new Error('Your Deriv connection could not be verified.');
+        const data = await response.json();
+        if (!data?.authenticated) {
+          window.location.replace('/api/auth/login');
+          return;
         }
 
         if (!cancelled) setReady(true);
