@@ -63,90 +63,21 @@ export default function ManualTraderPage() {
 
       <main
         style={{
-          padding: '18px 18px 28px',
-          maxWidth: 1700,
-          margin: '0 auto',
+          padding: '12px 14px 16px',
+          width: '100%',
+          boxSizing: 'border-box',
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-            marginBottom: 14,
-            padding: '0 4px',
-          }}
-        >
-          <div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                fontSize: 20,
-                fontWeight: 800,
-              }}
-            >
-              <span
-                style={{
-                  width: 30,
-                  height: 30,
-                  display: 'grid',
-                  placeItems: 'center',
-                  borderRadius: 9,
-                  background: 'linear-gradient(135deg,#00f5a0,#00c6ff)',
-                  color: '#03110d',
-                  fontSize: 11,
-                  fontWeight: 900,
-                }}
-              >
-                ST
-              </span>
-              Manual Trader
-            </div>
-            <div style={{ marginTop: 4, color: '#80959d', fontSize: 12 }}>
-              Live Deriv trading workspace
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 7,
-              padding: '7px 11px',
-              borderRadius: 999,
-              border: '1px solid rgba(0,245,160,.16)',
-              background: 'rgba(0,245,160,.06)',
-              color: '#74f3c0',
-              fontSize: 11,
-              fontWeight: 700,
-            }}
-          >
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: '50%',
-                background: '#00e6a0',
-                boxShadow: '0 0 10px #00e6a0',
-              }}
-            />
-            LIVE TRADING
-          </div>
-        </div>
-
         <section
           style={{
             width: '100%',
-            height: 'calc(100vh - 178px)',
-            minHeight: 650,
-            borderRadius: 14,
+            height: 'calc(100vh - 156px)',
+            minHeight: 680,
+            borderRadius: 10,
             overflow: 'hidden',
             border: '1px solid rgba(255,255,255,.09)',
-            background: '#fff',
-            boxShadow: '0 24px 70px rgba(0,0,0,.35)',
+            background: '#071015',
+            boxShadow: '0 20px 60px rgba(0,0,0,.30)',
             position: 'relative',
           }}
         >
@@ -154,13 +85,13 @@ export default function ManualTraderPage() {
             <iframe
               title="Star Traders Manual Trader"
               src={traderUrl}
-              allow="clipboard-read; clipboard-write; fullscreen"
+              allow="clipboard-read; clipboard-write; fullscreen; autoplay"
               style={{
                 width: '100%',
                 height: '100%',
                 border: 0,
                 display: 'block',
-                background: '#fff',
+                background: '#071015',
               }}
             />
           ) : (
