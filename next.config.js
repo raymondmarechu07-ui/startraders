@@ -23,9 +23,7 @@ const nextConfig = {
       "img-src 'self' data: blob:",
       "worker-src 'self' blob:",
       "font-src 'self' data:",
-      "connect-src 'self' https://auth.deriv.com https://api.derivws.com https://api-core.deriv.com https://*.deriv.com wss://api.derivws.com wss://api-core.deriv.com",
-      "frame-ancestors 'none'",
-      "base-uri 'self'",
+      "connect-src 'self' https://auth.deriv.com https://api.derivws.com https://api-core.deriv.com https://*.deriv.com wss://api.derivws.com wss://api-core.deriv.com",      "base-uri 'self'",
       "form-action 'self' https://auth.deriv.com",
     ].join('; ');
 
@@ -36,12 +34,7 @@ const nextConfig = {
           {
             key: 'Content-Security-Policy',
             value: csp,
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
-          {
+          },          {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
           },
