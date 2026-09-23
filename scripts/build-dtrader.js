@@ -59,6 +59,16 @@ try {
 
   fs.cpSync(builtDist, outputDir, { recursive: true });
 
+  // The browser remains on /manual-trader while Next.js serves this static
+  // DTrader build from /manual-trader-engine/. Make asset URLs absolute so
+  // the native engine does not try to load them from /assets/.
+  const engineIndex = path.join(outputDir, 'index.html');
+  let indexHtml = fs.readFileSync(engineIndex, 'utf8');
+  indexHtml = indexHtml
+    .replace(/(src|href)="\.\/([^"]+)"/g, '$1="/manual-trader-engine/$2"')
+    .replace(/(src|href)="(assets\/[^"]+)"/g, '$1="/manual-trader-engine/$2"');
+  fs.writeFileSync(engineIndex, indexHtml);
+
   console.log('[StarTraders] DTrader engine installed at public/manual-trader-engine/.');
 } finally {
   fs.rmSync(tempDir, { recursive: true, force: true });
