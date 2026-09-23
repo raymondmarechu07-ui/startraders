@@ -113,7 +113,7 @@ export default function ManualTraderPage() {
         <Script
           key={src}
           src={src}
-          strategy={index === scripts.length - 1 ? 'afterInteractive' : 'beforeInteractive'}
+          strategy='afterInteractive'
         />
       ))}
     </div>
