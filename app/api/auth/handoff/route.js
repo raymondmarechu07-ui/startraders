@@ -4,7 +4,10 @@ import { getSession } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
-const DTRADER_ORIGIN = 'https://startraders-dtrader.pages.dev';
+const DTRADER_ORIGINS = new Set([
+  'https://startraders-xn1z.onrender.com',
+  'https://startraders-dtrader.pages.dev',
+]);
 const HANDOFF_TTL_MS = 60 * 1000;
 
 function store() {
@@ -15,7 +18,11 @@ function store() {
 }
 
 function cors(response) {
-  response.headers.set('Access-Control-Allow-Origin', DTRADER_ORIGIN);
+  const origin = response.headers.get('Origin');
+  if (origin && DTRADER_ORIGINS.has(origin)) {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Vary', 'Origin');
+  }
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
   response.headers.set('Cache-Control', 'no-store');
