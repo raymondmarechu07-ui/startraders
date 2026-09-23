@@ -2,15 +2,31 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  async rewrites() {
+    return [
+      // Serve the compiled DTrader engine directly at the StarTraders Manual Trader URL.
+      // The browser never leaves the StarTraders Render domain.
+      {
+        source: '/manual-trader',
+        destination: '/manual-trader/index.html',
+      },
+      {
+        source: '/manual-trader/',
+        destination: '/manual-trader/index.html',
+      },
+    ];
+  },
+
   // Security headers
   async headers() {
     const csp = [
       "default-src 'self'",
       "style-src 'self' 'unsafe-inline'",
       "script-src 'self' 'unsafe-inline'",
-      "img-src 'self' data:",
+      "img-src 'self' data: blob:",
+      "worker-src 'self' blob:",
       "font-src 'self' data:",
-      "connect-src 'self' https://auth.deriv.com https://api.derivws.com https://*.deriv.com wss://api.derivws.com wss://api-core.deriv.com",
+      "connect-src 'self' https://auth.deriv.com https://api.derivws.com https://api-core.deriv.com https://*.deriv.com wss://api.derivws.com wss://api-core.deriv.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self' https://auth.deriv.com",
