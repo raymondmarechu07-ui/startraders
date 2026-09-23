@@ -2,21 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  async rewrites() {
-    return [
-      // Serve the compiled DTrader engine directly at the StarTraders Manual Trader URL.
-      // The browser never leaves the StarTraders Render domain.
-      {
-        source: '/manual-trader',
-        destination: '/manual-trader/index.html',
-      },
-      {
-        source: '/manual-trader/',
-        destination: '/manual-trader/index.html',
-      },
-    ];
-  },
-
   // Security headers
   async headers() {
     const csp = [
