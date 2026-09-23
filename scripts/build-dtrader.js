@@ -44,7 +44,9 @@ try {
     tempDir,
     {
       ...process.env,
+      OAUTH_CLIENT_ID: process.env.OAUTH_CLIENT_ID || process.env.DERIV_CLIENT_ID || '',
       DTRADER_BASE_PATH: 'manual-trader',
+      DTRADER_EMBEDDED: '1',
       NODE_ENV: 'production',
     }
   );
@@ -56,6 +58,22 @@ try {
   }
 
   fs.cpSync(builtDist, outputDir, { recursive: true });
+
+  const html = fs.readFileSync(path.join(builtDist, 'index.html'), 'utf8');
+  const scripts = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map(match => match[1]);
+  const styles = [...html.matchAll(/<link[^>]+href="([^"]+\\.css)"/g)].map(match => match[1]);
+
+  fs.writeFileSync(
+    path.join(root, 'public', 'manual-trader-manifest.json'),
+    JSON.stringify(
+      {
+        scripts: scripts.map(src => `/manual-trader/${src.replace(/^\\//, '')}`),
+        styles: styles.map(href => `/manual-trader/${href.replace(/^\\//, '')}`),
+      },
+      null,
+      2
+    )
+  );
 
   console.log('[StarTraders] DTrader engine installed at public/manual-trader/.');
 } finally {
