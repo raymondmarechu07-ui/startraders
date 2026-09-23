@@ -2,7 +2,19 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // Security headers
+  async rewrites() {
+    return [
+      {
+        source: '/manual-trader-engine',
+        destination: '/manual-trader-engine/index.html',
+      },
+      {
+        source: '/manual-trader-engine/',
+        destination: '/manual-trader-engine/index.html',
+      },
+    ];
+  },
+
   async headers() {
     const csp = [
       "default-src 'self'",
