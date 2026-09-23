@@ -10,7 +10,7 @@ const nextConfig = {
       "script-src 'self' 'unsafe-inline'",
       "img-src 'self' data:",
       "font-src 'self' data:",
-      "connect-src 'self' https://auth.deriv.com https://api.derivws.com https://*.deriv.com wss://api.derivws.com",
+      "connect-src 'self' https://auth.deriv.com https://api.derivws.com https://*.deriv.com wss://api.derivws.com wss://api-core.deriv.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self' https://auth.deriv.com",
