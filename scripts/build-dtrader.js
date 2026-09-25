@@ -4,11 +4,11 @@ const { spawnSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
 const tempDir = path.join(root, '.dtrader-build');
-const outputDir = path.join(root, 'public', 'manual-trader-engine');
+const outputDir = path.join(root, 'public', 'manual-trader');
 const dtraderRepo = 'https://github.com/raymondmarechu07-ui/startraders-dtrader.git';
 // Pin the exact tested StarTraders DTrader engine revision so a future upstream
 // change cannot silently alter the production Manual Trader build.
-const dtraderCommit = 'b80cb507b60467ec5f642d93830b88783f5c4cbd';
+const dtraderCommit = '5025bb238a0781a9f16dac2eab448cf0ca60b697';
 
 const run = (command, args, cwd, env = process.env) => {
   const result = spawnSync(command, args, {
@@ -49,7 +49,7 @@ try {
     {
       ...process.env,
       OAUTH_CLIENT_ID: process.env.OAUTH_CLIENT_ID || process.env.DERIV_CLIENT_ID || '',
-      DTRADER_BASE_PATH: 'manual-trader-engine',
+      DTRADER_BASE_PATH: 'manual-trader',
       DTRADER_EMBEDDED: '1',
       NODE_ENV: 'production',
     }
@@ -64,16 +64,16 @@ try {
   fs.cpSync(builtDist, outputDir, { recursive: true });
 
   // The browser remains on /manual-trader while Next.js serves this static
-  // DTrader build from /manual-trader-engine/. Make asset URLs absolute so
+  // DTrader build from /manual-trader/. Make asset URLs absolute so
   // the native engine does not try to load them from /assets/.
   const engineIndex = path.join(outputDir, 'index.html');
   let indexHtml = fs.readFileSync(engineIndex, 'utf8');
   indexHtml = indexHtml
-    .replace(/(src|href)="\.\/([^"]+)"/g, '$1="/manual-trader-engine/$2"')
-    .replace(/(src|href)="(assets\/[^"]+)"/g, '$1="/manual-trader-engine/$2"');
+    .replace(/(src|href)="\.\/([^"]+)"/g, '$1="/manual-trader/$2"')
+    .replace(/(src|href)="(assets\/[^"]+)"/g, '$1="/manual-trader/$2"');
   fs.writeFileSync(engineIndex, indexHtml);
 
-  console.log('[StarTraders] DTrader engine installed at public/manual-trader-engine/.');
+  console.log('[StarTraders] DTrader engine installed at public/manual-trader/.');
 } finally {
   fs.rmSync(tempDir, { recursive: true, force: true });
 }
