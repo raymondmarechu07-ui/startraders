@@ -2,21 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  async redirects() {
-    return [
-      {
-        source: '/manual-trader-engine',
-        destination: '/manual-trader',
-        permanent: false,
-      },
-      {
-        source: '/manual-trader-engine/',
-        destination: '/manual-trader',
-        permanent: false,
-      },
-    ];
-  },
-
   async headers() {
     const csp = [
       "default-src 'self'",
