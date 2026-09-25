@@ -88,8 +88,8 @@ try {
 
       const original = fs.readFileSync(filePath, 'utf8');
       const rewritten = original
-        .replace(/\\/trader\\//g, '/manual-trader-engine/')
-        .replace(/\\\\/trader\\\\/g, '/manual-trader-engine/');
+        .replaceAll('/trader/', '/manual-trader-engine/')
+        .replaceAll('\\\\/trader\\\\/', '/manual-trader-engine/');
 
       if (rewritten !== original) fs.writeFileSync(filePath, rewritten);
     }
