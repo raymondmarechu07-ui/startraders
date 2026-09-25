@@ -68,6 +68,35 @@ try {
 
   fs.cpSync(builtDist, outputDir, { recursive: true });
 
+  // The DTrader webpack build can still emit its original public asset prefix
+  // (/trader/) for lazy-loaded JS/CSS chunks. Because StarTraders serves the
+  // engine from /manual-trader-engine/, rewrite that runtime prefix throughout
+  // the generated text assets. Without this, the initial bundle loads but a
+  // lazy CSS chunk is requested from /trader/css/... and fails with a 404.
+  const rewriteAssetPrefixes = directory => {
+    const entries = fs.readdirSync(directory, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const filePath = path.join(directory, entry.name);
+
+      if (entry.isDirectory()) {
+        rewriteAssetPrefixes(filePath);
+        continue;
+      }
+
+      if (!/\\.(?:js|css|html|map|json)$/i.test(entry.name)) continue;
+
+      const original = fs.readFileSync(filePath, 'utf8');
+      const rewritten = original
+        .replace(/\\/trader\\//g, '/manual-trader-engine/')
+        .replace(/\\\\/trader\\\\/g, '/manual-trader-engine/');
+
+      if (rewritten !== original) fs.writeFileSync(filePath, rewritten);
+    }
+  };
+
+  rewriteAssetPrefixes(outputDir);
+
   // StarTraders owns /manual-trader. The DTrader engine lives at an internal
   // same-origin asset path and is displayed inside the StarTraders shell.
   const engineIndex = path.join(outputDir, 'index.html');
