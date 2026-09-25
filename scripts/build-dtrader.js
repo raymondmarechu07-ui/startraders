@@ -83,7 +83,7 @@ try {
   // Make every generated asset URL resolve from the internal engine path.
   indexHtml = indexHtml
     .replace(/(src|href)="\.\/([^"]+)"/g, '$1="/manual-trader-engine/$2"')
-    .replace(/(src|href)="(assets\/[^"]+)"/g, '$1="/dtrader-engine/$2"');
+    .replace(/(src|href)="(assets\/[^"]+)"/g, '$1="/manual-trader-engine/$2"');
 
   fs.writeFileSync(engineIndex, indexHtml);
 
