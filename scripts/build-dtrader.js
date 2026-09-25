@@ -5,8 +5,8 @@ const { spawnSync } = require('child_process');
 const root = path.resolve(__dirname, '..');
 const tempDir = path.join(root, '.dtrader-build');
 const publicDir = path.join(root, 'public');
-const outputDir = path.join(publicDir, 'dtrader-engine');
-const oldOutputDir = path.join(publicDir, 'manual-trader');
+const outputDir = path.join(publicDir, 'manual-trader-engine');
+const oldOutputDir = path.join(publicDir, 'dtrader-engine');
 const dtraderRepo = 'https://github.com/raymondmarechu07-ui/startraders-dtrader.git';
 // Pin the exact tested StarTraders DTrader engine revision so a future upstream
 // change cannot silently alter the production Manual Trader build.
@@ -54,7 +54,7 @@ try {
     {
       ...process.env,
       OAUTH_CLIENT_ID: process.env.OAUTH_CLIENT_ID || process.env.DERIV_CLIENT_ID || '',
-      DTRADER_BASE_PATH: 'dtrader-engine',
+      DTRADER_BASE_PATH: 'manual-trader-engine',
       DTRADER_EMBEDDED: '1',
       NODE_ENV: 'production',
     }
@@ -82,12 +82,12 @@ try {
 
   // Make every generated asset URL resolve from the internal engine path.
   indexHtml = indexHtml
-    .replace(/(src|href)="\.\/([^"]+)"/g, '$1="/dtrader-engine/$2"')
+    .replace(/(src|href)="\.\/([^"]+)"/g, '$1="/manual-trader-engine/$2"')
     .replace(/(src|href)="(assets\/[^"]+)"/g, '$1="/dtrader-engine/$2"');
 
   fs.writeFileSync(engineIndex, indexHtml);
 
-  console.log('[StarTraders] DTrader engine installed at public/dtrader-engine/.');
+  console.log('[StarTraders] DTrader engine installed at public/manual-trader-engine/.');
 } finally {
   fs.rmSync(tempDir, { recursive: true, force: true });
 }

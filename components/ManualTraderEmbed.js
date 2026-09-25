@@ -35,7 +35,7 @@ export default function ManualTraderEmbed() {
         <iframe
           key={accountKey}
           title="StarTraders Manual Trader"
-          src="/dtrader-engine/index.html?theme=dark&st_embed=1"
+          src="/manual-trader-engine/index.html?theme=dark&st_embed=1"
           className={loaded ? 'manual-trader-frame ready' : 'manual-trader-frame'}
           onLoad={() => setLoaded(true)}
           allow="fullscreen"
