@@ -5,7 +5,6 @@ import TabNav from '@/components/TabNav';
 import ManualTraderEmbed from '@/components/ManualTraderEmbed';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 export default function ManualTraderPage() {
   return (
