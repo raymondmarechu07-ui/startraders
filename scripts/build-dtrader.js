@@ -84,7 +84,7 @@ try {
         continue;
       }
 
-      if (!/\\.(?:js|css|html|map|json)$/i.test(entry.name)) continue;
+      if (!/\.(?:js|css|html|map|json)$/i.test(entry.name)) continue;
 
       const original = fs.readFileSync(filePath, 'utf8');
       const rewritten = original
