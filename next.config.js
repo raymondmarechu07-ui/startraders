@@ -6,11 +6,11 @@ const nextConfig = {
     return [
       {
         source: '/manual-trader',
-        destination: '/manual-trader-engine/index.html',
+        destination: '/manual-trader/index.html',
       },
       {
         source: '/manual-trader/',
-        destination: '/manual-trader-engine/index.html',
+        destination: '/manual-trader/index.html',
       },
     ];
   },
