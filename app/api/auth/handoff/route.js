@@ -5,8 +5,10 @@ import { getSession } from '@/lib/session';
 export const dynamic = 'force-dynamic';
 
 const DTRADER_ORIGINS = new Set([
+  // Manual Trader is now served from this StarTraders origin.
+  // Keep the Render origin for the existing deployment while the
+  // custom domain is configured; same-origin requests do not need CORS.
   'https://startraders-xn1z.onrender.com',
-  'https://startraders-dtrader.pages.dev',
 ]);
 const HANDOFF_TTL_MS = 60 * 1000;
 
