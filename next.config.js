@@ -5,11 +5,11 @@ const nextConfig = {
   async headers() {
     const csp = [
       "default-src 'self'",
-      "style-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "script-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "worker-src 'self' blob:",
-      "font-src 'self' data:",
+      "font-src 'self' data: https://fonts.gstatic.com",
       "connect-src 'self' https://auth.deriv.com https://api.derivws.com https://api-core.deriv.com https://*.deriv.com wss://api.derivws.com wss://api-core.deriv.com",
       "base-uri 'self'",
       "form-action 'self' https://auth.deriv.com",
