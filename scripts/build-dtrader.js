@@ -10,7 +10,7 @@ const oldOutputDir = path.join(publicDir, 'dtrader-engine');
 const dtraderRepo = 'https://github.com/raymondmarechu07-ui/startraders-dtrader.git';
 // Pin the exact tested StarTraders DTrader engine revision so a future upstream
 // change cannot silently alter the production Manual Trader build.
-const dtraderCommit = 'df77d0b64c69f8c028a668c624785b8230e8884f';
+const dtraderCommit = 'b1e7578268a5b12cb012f2db59796278500dbc1a';
 
 const run = (command, args, cwd, env = process.env) => {
   const result = spawnSync(command, args, {
