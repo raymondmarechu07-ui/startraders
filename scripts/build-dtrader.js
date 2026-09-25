@@ -4,7 +4,9 @@ const { spawnSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
 const tempDir = path.join(root, '.dtrader-build');
-const outputDir = path.join(root, 'public', 'manual-trader');
+const publicDir = path.join(root, 'public');
+const outputDir = path.join(publicDir, 'dtrader-engine');
+const oldOutputDir = path.join(publicDir, 'manual-trader');
 const dtraderRepo = 'https://github.com/raymondmarechu07-ui/startraders-dtrader.git';
 // Pin the exact tested StarTraders DTrader engine revision so a future upstream
 // change cannot silently alter the production Manual Trader build.
@@ -28,8 +30,11 @@ const git = process.platform === 'win32' ? 'git.exe' : 'git';
 
 try {
   fs.rmSync(tempDir, { recursive: true, force: true });
+  // The DTrader engine is an internal implementation detail. It must not own
+  // the public /manual-trader URL because StarTraders owns that route.
+  fs.rmSync(oldOutputDir, { recursive: true, force: true });
   fs.rmSync(outputDir, { recursive: true, force: true });
-  fs.mkdirSync(path.dirname(outputDir), { recursive: true });
+  fs.mkdirSync(publicDir, { recursive: true });
 
   console.log('[StarTraders] Fetching the DTrader engine...');
   run(git, ['clone', '--depth', '1', dtraderRepo, tempDir], root);
@@ -41,7 +46,7 @@ try {
   console.log('[StarTraders] Generating StarTraders DTrader theme...');
   run(npm, ['run', 'generate:colors'], tempDir);
 
-  console.log('[StarTraders] Building DTrader as the same-origin Manual Trader engine...');
+  console.log('[StarTraders] Building DTrader as the embedded Manual Trader engine...');
   run(
     npm,
     ['run', 'build:all'],
@@ -49,7 +54,7 @@ try {
     {
       ...process.env,
       OAUTH_CLIENT_ID: process.env.OAUTH_CLIENT_ID || process.env.DERIV_CLIENT_ID || '',
-      DTRADER_BASE_PATH: 'manual-trader',
+      DTRADER_BASE_PATH: 'dtrader-engine',
       DTRADER_EMBEDDED: '1',
       NODE_ENV: 'production',
     }
@@ -63,17 +68,26 @@ try {
 
   fs.cpSync(builtDist, outputDir, { recursive: true });
 
-  // The browser remains on /manual-trader while Next.js serves this static
-  // DTrader build from /manual-trader/. Make asset URLs absolute so
-  // the native engine does not try to load them from /assets/.
+  // StarTraders owns /manual-trader. The DTrader engine lives at an internal
+  // same-origin asset path and is displayed inside the StarTraders shell.
   const engineIndex = path.join(outputDir, 'index.html');
   let indexHtml = fs.readFileSync(engineIndex, 'utf8');
+
+  // DTrader normally prevents iframe embedding. We intentionally remove only
+  // that document-level anti-clickjacking block for this same-origin embed.
+  indexHtml = indexHtml.replace(
+    /\s*<!-- Start Anti-Clickjack -->[\s\S]*?<!-- End Anti-Clickjack -->\s*/i,
+    '\n'
+  );
+
+  // Make every generated asset URL resolve from the internal engine path.
   indexHtml = indexHtml
-    .replace(/(src|href)="\.\/([^"]+)"/g, '$1="/manual-trader/$2"')
-    .replace(/(src|href)="(assets\/[^"]+)"/g, '$1="/manual-trader/$2"');
+    .replace(/(src|href)="\.\/([^"]+)"/g, '$1="/dtrader-engine/$2"')
+    .replace(/(src|href)="(assets\/[^"]+)"/g, '$1="/dtrader-engine/$2"');
+
   fs.writeFileSync(engineIndex, indexHtml);
 
-  console.log('[StarTraders] DTrader engine installed at public/manual-trader/.');
+  console.log('[StarTraders] DTrader engine installed at public/dtrader-engine/.');
 } finally {
   fs.rmSync(tempDir, { recursive: true, force: true });
 }
