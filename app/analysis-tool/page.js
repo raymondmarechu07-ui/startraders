@@ -1,50 +1,53 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import UtilityBar from '@/components/UtilityBar';
 import TabNav from '@/components/TabNav';
+import { useDeriv } from '@/context/DerivProvider';
+import { lastDigitFromQuote, formatDerivError } from '@/lib/deriv-market';
 
 const COLORS = ['#fb923c', '#94a3b8', '#ef4444', '#facc15', '#94a3b8', '#3b82f6', '#94a3b8', '#4ade80', '#94a3b8', '#94a3b8'];
 
-function randomDigits() {
-  let vals = Array.from({ length: 10 }, () => Math.random());
-  const sum = vals.reduce((a, b) => a + b, 0);
-  return vals.map((v) => (v / sum) * 100);
-}
-
 export default function AnalysisToolPage() {
-  const [digits, setDigits] = useState(randomDigits());
+  const { status, subscribeTicks, unsubscribeTicks } = useDeriv();
+  const [ticks, setTicks] = useState([]);
   const [selectedDigit, setSelectedDigit] = useState(5);
-  const [matchPct, setMatchPct] = useState(10.4);
-  const [price, setPrice] = useState(731.93);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const i1 = setInterval(() => setDigits(randomDigits()), 2500);
-    const i2 = setInterval(() => setMatchPct(Math.random() * 20 + 5), 3000);
-    const i3 = setInterval(() => setPrice((p) => p + (Math.random() - 0.5) * 0.6), 1000);
-    return () => {
-      clearInterval(i1);
-      clearInterval(i2);
-      clearInterval(i3);
-    };
-  }, []);
+    setTicks([]);
+    if (status !== 'connected') return undefined;
 
+    subscribeTicks('1HZ100V', (tick) => {
+      setTicks((prev) => [...prev.slice(-999), tick]);
+    }).catch((err) => setError(formatDerivError(err)));
+
+    return () => unsubscribeTicks();
+  }, [status, subscribeTicks, unsubscribeTicks]);
+
+  const digits = useMemo(() => {
+    const counts = Array(10).fill(0);
+    ticks.forEach((tick) => {
+      const digit = lastDigitFromQuote(tick.quote);
+      if (digit !== null) counts[digit] += 1;
+    });
+    const total = counts.reduce((sum, value) => sum + value, 0);
+    return counts.map((value) => total ? (value / total) * 100 : 0);
+  }, [ticks]);
+
+  const selectedMatch = digits[selectedDigit] || 0;
+  const differPct = Math.max(0, 100 - selectedMatch);
   const maxIdx = digits.indexOf(Math.max(...digits));
-  const differPct = 100 - matchPct;
+  const latest = ticks[ticks.length - 1];
 
   return (
     <>
       <UtilityBar />
       <TabNav />
-
       <main>
         <div className="sub-toggle">
           <button className="active">Circles</button>
-          <button
-            onClick={() =>
-              alert('Scanner view — a saved-strategy scan list — comes next once this tool is wired to real tick data.')
-            }
-          >
+          <button type="button" onClick={() => setSelectedDigit((d) => (d + 1) % 10)}>
             Scanner
           </button>
         </div>
@@ -52,57 +55,47 @@ export default function AnalysisToolPage() {
         <div className="market-row">
           <div className="m-name">Volatility 100 (1s) Index</div>
           <div className="ticks-field">
-            TICKS <input type="number" defaultValue={1000} />
+            TICKS <input type="number" value={Math.max(ticks.length, 1)} readOnly />
           </div>
-          <div className="live-price">{price.toFixed(2)}</div>
+          <div className="live-price">{latest ? Number(latest.quote).toFixed(3) : '—'}</div>
         </div>
 
+        {error && <div className="error-banner">{error}</div>}
+
         <div className="section-label">
-          Digit distribution <span className="badge">1000 ticks</span>
+          Live digit distribution <span className="badge">{ticks.length} ticks</span>
         </div>
         <div className="digit-grid">
-          {digits.map((v, i) => (
-            <div
-              key={i}
-              className={i === maxIdx ? 'digit-circle leader' : 'digit-circle'}
-              style={{ '--dc-color': COLORS[i] }}
-            >
+          {digits.map((value, i) => (
+            <div key={i} className={i === maxIdx && ticks.length ? 'digit-circle leader' : 'digit-circle'} style={{ '--dc-color': COLORS[i] }}>
               <div className="num">{i}</div>
-              <div className="pct">{v.toFixed(1)}%</div>
+              <div className="pct">{value.toFixed(1)}%</div>
             </div>
           ))}
         </div>
 
         <div className="section-label">
-          Match / Differ <span className="badge">24x Differ</span>
+          Match / Differ <span className="badge">Digit {selectedDigit}</span>
         </div>
         <div className="md-digit-row">
           {Array.from({ length: 10 }, (_, i) => (
-            <div
-              key={i}
-              className={i === selectedDigit ? 'md-digit selected' : 'md-digit'}
-              onClick={() => setSelectedDigit(i)}
-            >
+            <div key={i} className={i === selectedDigit ? 'md-digit selected' : 'md-digit'} onClick={() => setSelectedDigit(i)}>
               {i}
             </div>
           ))}
         </div>
         <div className="md-bar-row">
           <div className="md-bar-label">
-            <span className="match">{matchPct.toFixed(1)}% Match</span>
+            <span className="match">{selectedMatch.toFixed(1)}% Match</span>
             <span className="differ">{differPct.toFixed(1)}% Differ</span>
           </div>
           <div className="md-bar-track">
-            <div className="match-fill" style={{ width: `${matchPct}%` }}></div>
-            <div className="differ-fill" style={{ width: `${differPct}%` }}></div>
+            <div className="match-fill" style={{ width: selectedMatch + '%' }}></div>
+            <div className="differ-fill" style={{ width: differPct + '%' }}></div>
           </div>
         </div>
         <div className="pred-row">
-          {Array.from({ length: 10 }, (_, i) => (
-            <div className="p" key={i}>
-              D
-            </div>
-          ))}
+          {digits.map((_, i) => <div className="p" key={i}>{i}</div>)}
         </div>
       </main>
     </>
