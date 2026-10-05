@@ -63,7 +63,12 @@ export default function TabNav() {
         {tabs.filter((tab) => !tab.hidden).map((tab) => {
           const isActive = tab.href === pathname;
           return (
-            <button key={tab.label} type="button" className={isActive ? 'tab-item active' : 'tab-item'} onClick={() => { if (isActive) return; if (tab.href) router.push(tab.href); else alert(`${tab.label} — not built yet, coming up next in the plan.`); }}>
+            <button key={tab.label} type="button" className={isActive ? 'tab-item active' : 'tab-item'} onMouseEnter={() => {
+                if (tab.href === '/manual-trader') {
+                  import('./ManualTraderEmbed').then(({ preloadManualTraderEngine }) => preloadManualTraderEngine()).catch(() => {});
+                }
+              }}
+              onClick={() => { if (isActive) return; if (tab.href) router.push(tab.href); else alert(`${tab.label} — not built yet, coming up next in the plan.`); }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d={tab.icon} /></svg>
               <span>{tab.label}</span>
             </button>
