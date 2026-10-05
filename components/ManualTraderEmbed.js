@@ -7,55 +7,77 @@ let engineAssetsPromise = null;
 function loadEngineAssets() {
   if (engineAssetsPromise) return engineAssetsPromise;
 
-  engineAssetsPromise = fetch('/manual-trader-engine/index.html', { cache: 'no-store' })
+  engineAssetsPromise = fetch('/manual-trader-engine/index.html', {
+    cache: 'force-cache',
+  })
     .then((response) => {
-      if (!response.ok) throw new Error(`DTrader engine manifest failed: ${response.status}`);
+      if (!response.ok) throw new Error('DTrader engine manifest failed: ' + response.status);
       return response.text();
     })
     .then((html) => {
       const doc = new DOMParser().parseFromString(html, 'text/html');
 
-      doc.querySelectorAll('link[rel="stylesheet"][href]').forEach((link) => {
+      const stylesheets = Array.from(
+        doc.querySelectorAll('link[rel="stylesheet"][href]')
+      );
+
+      stylesheets.forEach((link) => {
         const href = link.getAttribute('href');
         if (!href) return;
+
         const absolute = new URL(href, window.location.origin).href;
-        if (!document.querySelector(`link[data-startraders-dtrader-css="${absolute}"]`)) {
-          const style = document.createElement('link');
-          style.rel = 'stylesheet';
-          style.href = absolute;
-          style.dataset.startradersDtraderCss = absolute;
-          document.head.appendChild(style);
-        }
+        if (document.querySelector('link[data-startraders-dtrader-css="' + absolute + '"]')) return;
+
+        const style = document.createElement('link');
+        style.rel = 'stylesheet';
+        style.href = absolute;
+        style.dataset.startradersDtraderCss = absolute;
+        document.head.appendChild(style);
       });
 
       const scripts = Array.from(doc.querySelectorAll('script[src]'));
-      return scripts.reduce(
-        (chain, script) =>
-          chain.then(
-            () =>
-              new Promise((resolve, reject) => {
-                const src = new URL(script.getAttribute('src'), window.location.origin).href;
-                const existing = document.querySelector(`script[data-startraders-dtrader-src="${src}"]`);
 
-                if (existing) {
-                  resolve();
-                  return;
-                }
+      // Module bundles do not depend on classic-script execution order.
+      // Load those in parallel; retain document order for classic scripts.
+      const moduleScripts = scripts.filter((script) => script.type === 'module');
+      const classicScripts = scripts.filter((script) => script.type !== 'module');
 
-                const el = document.createElement('script');
-                el.src = src;
-                el.async = false;
-                el.dataset.startradersDtraderSrc = src;
-                el.onload = resolve;
-                el.onerror = () => reject(new Error(`DTrader asset failed: ${src}`));
-                document.body.appendChild(el);
-              })
-          ),
-        Promise.resolve()
+      const loadScript = (script) =>
+        new Promise((resolve, reject) => {
+          const src = new URL(script.getAttribute('src'), window.location.origin).href;
+          const existing = document.querySelector(
+            'script[data-startraders-dtrader-src="' + src + '"]'
+          );
+
+          if (existing) {
+            resolve();
+            return;
+          }
+
+          const el = document.createElement('script');
+          el.src = src;
+          el.type = script.type || '';
+          el.async = script.type === 'module';
+          el.dataset.startradersDtraderSrc = src;
+          el.onload = resolve;
+          el.onerror = () => reject(new Error('DTrader asset failed: ' + src));
+          document.body.appendChild(el);
+        });
+
+      return Promise.all(moduleScripts.map(loadScript)).then(() =>
+        classicScripts.reduce(
+          (chain, script) => chain.then(() => loadScript(script)),
+          Promise.resolve()
+        )
       );
     });
 
   return engineAssetsPromise;
+}
+
+export function preloadManualTraderEngine() {
+  if (typeof window === 'undefined') return;
+  loadEngineAssets().catch(() => {});
 }
 
 export default function ManualTraderEmbed() {
@@ -103,8 +125,9 @@ export default function ManualTraderEmbed() {
       {status === 'loading' && (
         <div className="manual-trader-loading">
           <div className="manual-trader-spinner" />
-          <strong>Opening Manual Trader…</strong>
-          <span>Loading the live Deriv trading workspace inside StarTraders.</span>
+          <strong>STARTRADERS · MANUAL TRADER</strong>
+          <span>Connecting to the live Deriv trading workspace…</span>
+          <small>Your account session is preserved while the chart initializes.</small>
         </div>
       )}
 
@@ -121,7 +144,7 @@ export default function ManualTraderEmbed() {
       <div
         ref={mountRef}
         id="derivatives_trader"
-        className={`manual-trader-workspace ${status === 'ready' ? 'ready' : ''}`}
+        className={'manual-trader-workspace ' + (status === 'ready' ? 'ready' : '')}
       />
     </section>
   );
