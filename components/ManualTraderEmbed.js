@@ -137,13 +137,11 @@ export default function ManualTraderEmbed() {
   }, []);
 
   return (
-    <section className="manual-trader-page" aria-label="StarTraders Manual Trader">
+    <section className="manual-trader-page" aria-label="DTrader">
       {status === 'loading' && (
         <div className="manual-trader-loading">
-          <div className="manual-trader-spinner" />
-          <strong>STARTRADERS · MANUAL TRADER</strong>
-          <span>Connecting to your live Deriv trading workspace…</span>
-          <small>Your StarTraders account session is being handed to the trader securely.</small>
+          <div className="manual-trader-spinner" aria-hidden="true" />
+          <strong>DTRADER</strong>
         </div>
       )}
 
