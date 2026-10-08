@@ -87,12 +87,12 @@ try {
 
       const original = fs.readFileSync(filePath, 'utf8');
       const rewritten = original
-        // Rewrite only root-relative DTrader asset URLs. Do not rewrite a
-        // /trader/ or /js/ segment that is already inside another path.
-        .replace(/([\\"'(=:\\s])\\/trader\\//g, '$1/manual-trader-engine/')
-        .replace(/([\\"'(=:\\s])\\/js\\//g, '$1/manual-trader-engine/js/')
-        .replace(/([\\"'(=:\\s])\\\\/trader\\\\//g, '$1/manual-trader-engine/')
-        .replace(/([\\"'(=:\\s])\\\\/js\\\\//g, '$1/manual-trader-engine/js/');
+        // Rewrite root-relative asset prefixes without corrupting a URL that
+        // already contains the embedded engine prefix.
+        .replace(/(^|[\\"'(=:\\s])\/trader\//g, '$1/manual-trader-engine/')
+        .replace(/(^|[\\"'(=:\\s])\/js\//g, '$1/manual-trader-engine/js/')
+        .replace(/(^|[\\"'(=:\\s])\\\/trader\\\//g, '$1/manual-trader-engine/')
+        .replace(/(^|[\\"'(=:\\s])\\\/js\\\//g, '$1/manual-trader-engine/js/');
 
       if (rewritten !== original) fs.writeFileSync(filePath, rewritten);
     }
