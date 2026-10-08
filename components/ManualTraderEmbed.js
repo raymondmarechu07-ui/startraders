@@ -103,7 +103,15 @@ export default function ManualTraderEmbed() {
 
         // The DTrader bootstrap is async: do not remove the StarTraders
         // loading layer until the real DTrader React tree has mounted.
-        await mount();
+        await Promise.race([
+          mount(),
+          new Promise((_, reject) =>
+            window.setTimeout(
+              () => reject(new Error('DTrader workspace timed out while initializing.')),
+              45000
+            )
+          ),
+        ]);
 
         if (cancelled) return;
 
