@@ -54,7 +54,6 @@ try {
     {
       ...process.env,
       OAUTH_CLIENT_ID: process.env.OAUTH_CLIENT_ID || process.env.DERIV_CLIENT_ID || '',
-      DTRADER_BASE_PATH: 'manual-trader-engine',
       DTRADER_EMBEDDED: '1',
       NODE_ENV: 'production',
     }
@@ -88,15 +87,12 @@ try {
 
       const original = fs.readFileSync(filePath, 'utf8');
       const rewritten = original
-        .replaceAll('/trader/', '/manual-trader-engine/')
-        .replaceAll('\\\\/trader\\\\/', '/manual-trader-engine/')
-        // SmartCharts is a lazy-loaded part of DTrader and its webpack
-        // runtime emits absolute /js/smartcharts/* URLs. Inside StarTraders
-        // those files live under /manual-trader-engine/js/*, otherwise the
-        // initial trader loads but the chart remains stuck on "Retrieving
-        // Chart Data..." with 404/ChunkLoadError in the browser.
-        .replaceAll('/js/', '/manual-trader-engine/js/')
-        .replaceAll('\\\\/js\\\\/', '/manual-trader-engine/js/');
+        // Rewrite only root-relative DTrader asset URLs. Do not rewrite a
+        // /trader/ or /js/ segment that is already inside another path.
+        .replace(/([\\"'(=:\\s])\\/trader\\//g, '$1/manual-trader-engine/')
+        .replace(/([\\"'(=:\\s])\\/js\\//g, '$1/manual-trader-engine/js/')
+        .replace(/([\\"'(=:\\s])\\\\/trader\\\\//g, '$1/manual-trader-engine/')
+        .replace(/([\\"'(=:\\s])\\\\/js\\\\//g, '$1/manual-trader-engine/js/');
 
       if (rewritten !== original) fs.writeFileSync(filePath, rewritten);
     }
