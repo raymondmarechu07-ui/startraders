@@ -8,7 +8,7 @@ function loadEngineAssets() {
   if (engineAssetsPromise) return engineAssetsPromise;
 
   engineAssetsPromise = fetch('/manual-trader-engine/index.html', {
-    cache: 'force-cache',
+    cache: 'no-store',
   })
     .then((response) => {
       if (!response.ok) throw new Error('DTrader engine manifest failed: ' + response.status);
