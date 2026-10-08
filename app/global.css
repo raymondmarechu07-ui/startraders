@@ -2143,43 +2143,44 @@ footer {
 
 
 /* ==========================================================
-   MANUAL TRADER — StarTraders shell + embedded DTrader engine
+   MANUAL TRADER — embedded DTrader workspace
+   The DTrader engine owns the account/balance and trading controls.
+   StarTraders only supplies the navigation shell around it.
    ========================================================== */
 .manual-trader-dashboard {
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   padding-bottom: 0;
-  background:
-    radial-gradient(circle at 15% 10%, rgba(22, 217, 255, .06), transparent 28%),
-    var(--bg);
+  overflow: hidden;
+  background: var(--bg);
 }
 
 .manual-trader-page {
   position: relative;
   width: 100%;
-  height: calc(100vh - 108px);
-  min-height: 620px;
+  height: calc(100vh - 56px);
+  min-height: 0;
   padding: 0;
   overflow: hidden;
   background: #181c25;
 }
 
-.manual-trader-workspace {
+.manual-trader-workspace,
+.manual-trader-workspace #derivatives_trader,
+#derivatives_trader {
   width: 100%;
   height: 100%;
-  min-height: 620px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.manual-trader-workspace {
   overflow: hidden;
   background: #181c25;
 }
 
 .manual-trader-workspace.ready {
   opacity: 1;
-}
-
-.manual-trader-workspace #derivatives_trader,
-#derivatives_trader {
-  width: 100%;
-  height: 100%;
-  min-height: 620px;
 }
 
 .manual-trader-loading {
@@ -2189,19 +2190,28 @@ footer {
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 8px;
+  gap: 14px;
   padding: 24px;
-  color: var(--text);
+  color: #f5f8ff;
   background:
-    radial-gradient(circle at 50% 35%, rgba(22, 217, 255, .09), transparent 32%),
+    radial-gradient(circle at 50% 40%, rgba(22, 217, 255, .10), transparent 30%),
     #181c25;
   text-align: center;
 }
 
+.manual-trader-loading strong {
+  color: #f5f8ff;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: .16em;
+}
+
 .manual-trader-loading span {
-  max-width: 520px;
-  color: var(--text-2);
-  font-size: 12px;
+  display: none;
+}
+
+.manual-trader-loading small {
+  display: none;
 }
 
 .manual-trader-loading button {
@@ -2215,53 +2225,23 @@ footer {
 }
 
 .manual-trader-spinner {
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   border: 3px solid rgba(255,255,255,.12);
   border-top-color: var(--cyan);
   border-right-color: var(--orange);
   border-radius: 50%;
   animation: spin .8s linear infinite;
+  box-shadow: 0 0 18px rgba(22, 217, 255, .12);
 }
 
 [data-theme="light"] .manual-trader-dashboard {
   background: #f4f7fb;
 }
 
-[data-theme="light"] .manual-trader-toolbar {
-  background: rgba(255,255,255,.92);
-  border-color: rgba(15,35,60,.12);
-}
-
 @media (max-width: 700px) {
   .manual-trader-page {
-    min-height: calc(100vh - 104px);
-    padding: 10px;
-    gap: 10px;
-  }
-
-  .manual-trader-toolbar {
-    align-items: flex-start;
-    padding: 13px 14px;
-  }
-
-  .manual-trader-toolbar p {
-    display: none;
-  }
-
-  .manual-trader-connection {
-    padding: 7px 9px;
-    font-size: 9px;
-  }
-
-  .manual-trader-frame-wrap {
-    min-height: 560px;
-    border-radius: 12px;
-  }
-
-  .manual-trader-frame {
-    height: calc(100vh - 190px);
-    min-height: 560px;
+    height: calc(100vh - 51px);
+    min-height: 0;
   }
 }
-
