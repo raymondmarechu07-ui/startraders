@@ -89,7 +89,14 @@ try {
       const original = fs.readFileSync(filePath, 'utf8');
       const rewritten = original
         .replaceAll('/trader/', '/manual-trader-engine/')
-        .replaceAll('\\\\/trader\\\\/', '/manual-trader-engine/');
+        .replaceAll('\\\\/trader\\\\/', '/manual-trader-engine/')
+        // SmartCharts is a lazy-loaded part of DTrader and its webpack
+        // runtime emits absolute /js/smartcharts/* URLs. Inside StarTraders
+        // those files live under /manual-trader-engine/js/*, otherwise the
+        // initial trader loads but the chart remains stuck on "Retrieving
+        // Chart Data..." with 404/ChunkLoadError in the browser.
+        .replaceAll('/js/', '/manual-trader-engine/js/')
+        .replaceAll('\\\\/js\\\\/', '/manual-trader-engine/js/');
 
       if (rewritten !== original) fs.writeFileSync(filePath, rewritten);
     }
