@@ -101,7 +101,15 @@ export default function ManualTraderEmbed() {
           throw new Error('DTrader embedded mount hook is unavailable.');
         }
 
-        mount();
+        // The DTrader bootstrap is async: do not remove the StarTraders
+        // loading layer until the real DTrader React tree has mounted.
+        await mount();
+
+        if (cancelled) return;
+
+        const workspace = document.getElementById('derivatives_trader');
+        if (!workspace) throw new Error('DTrader workspace container disappeared.');
+
         setStatus('ready');
       } catch (err) {
         if (!cancelled) {
@@ -126,8 +134,8 @@ export default function ManualTraderEmbed() {
         <div className="manual-trader-loading">
           <div className="manual-trader-spinner" />
           <strong>STARTRADERS · MANUAL TRADER</strong>
-          <span>Connecting to the live Deriv trading workspace…</span>
-          <small>Your account session is preserved while the chart initializes.</small>
+          <span>Connecting to your live Deriv trading workspace…</span>
+          <small>Your StarTraders account session is being handed to the trader securely.</small>
         </div>
       )}
 
