@@ -120,6 +120,21 @@ try {
 
   fs.writeFileSync(engineIndex, indexHtml);
 
+  // Fail the Render build instead of deploying an HTML manifest that points
+  // at missing JS/CSS files (which appear in the browser as 404 HTML/MIME errors).
+  const finalHtml = fs.readFileSync(engineIndex, 'utf8');
+  const assetRefs = [...finalHtml.matchAll(/(?:src|href)="([^"]+)"/g)]
+    .map(match => match[1])
+    .filter(value => value.startsWith('/manual-trader-engine/'));
+  const missingAssets = assetRefs.filter(value => {
+    const relative = value.slice('/manual-trader-engine/'.length).split(/[?#]/, 1)[0];
+    return !fs.existsSync(path.join(outputDir, relative));
+  });
+  if (missingAssets.length) {
+    throw new Error('DTrader manifest references missing assets: ' + missingAssets.join(', '));
+  }
+
+  console.log('[StarTraders] Validated ' + assetRefs.length + ' DTrader manifest assets.');
   console.log('[StarTraders] DTrader engine installed at public/manual-trader-engine/.');
 } finally {
   fs.rmSync(tempDir, { recursive: true, force: true });
