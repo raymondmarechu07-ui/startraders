@@ -55,6 +55,7 @@ try {
       ...process.env,
       OAUTH_CLIENT_ID: process.env.OAUTH_CLIENT_ID || process.env.DERIV_CLIENT_ID || '',
       DTRADER_EMBEDDED: '1',
+      DTRADER_BASE_PATH: 'manual-trader-engine',
       NODE_ENV: 'production',
     }
   );
