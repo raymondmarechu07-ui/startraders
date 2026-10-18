@@ -106,8 +106,17 @@ export default function BotBuilderPage() {
   }, [status, activeAccount, subscribeTicks, unsubscribeTicks, requestProposal, buyContract, subscribeContract]);
 
   function startBot() {
-    if (status !== 'connected') {
-      setError('Connect a Deriv account before running the bot.');
+    if (status !== 'connected' || !activeAccount) {
+      setError('Connect to Deriv and select an account before running the bot.');
+      return;
+    }
+    const amount = Number(stake);
+    if (!Number.isFinite(amount) || amount < 0.35) {
+      setError('Enter a valid stake of at least 0.35 in your account currency.');
+      return;
+    }
+    if (!Number.isInteger(Number(maxRuns)) || Number(maxRuns) < 1 || Number(maxRuns) > 100) {
+      setError('Maximum trades must be a whole number from 1 to 100.');
       return;
     }
     setConfirmOpen(true);
@@ -116,15 +125,15 @@ export default function BotBuilderPage() {
   function confirmStart() {
     setConfirmOpen(false);
     setError('');
-    activeContractRef.current = false;
+    // Keep an outstanding contract locked until Deriv reports settlement.
     setRunning(true);
     runningRef.current = true;
   }
 
   function stopBot() {
+    // Stop future entries, but let an already purchased contract settle.
     setRunning(false);
     runningRef.current = false;
-    activeContractRef.current = false;
   }
 
   function dropBlock(event) {
@@ -248,8 +257,8 @@ export default function BotBuilderPage() {
 
       <div className="stats-panel visible">
         <div className="stats-grid">
-          <div className="stat-box"><div className={'val ' + (stats.pnl >= 0 ? 'pos' : 'neg')}>{stats.pnl >= 0 ? '+$' : '-$'}{Math.abs(stats.pnl).toFixed(2)}</div><div className="lbl">Real profit/loss</div></div>
-          <div className="stat-box"><div className="val">{stats.runs}</div><div className="lbl">Real contracts</div></div>
+          <div className="stat-box"><div className={'val ' + (stats.pnl >= 0 ? 'pos' : 'neg')}>{stats.pnl >= 0 ? '+$' : '-$'}{Math.abs(stats.pnl).toFixed(2)}</div><div className="lbl">Realized P/L</div></div>
+          <div className="stat-box"><div className="val">{stats.runs}</div><div className="lbl">Contracts bought</div></div>
           <div className="stat-box"><div className="val pos">{stats.won}</div><div className="lbl">Contracts won</div></div>
           <div className="stat-box"><div className="val neg">{stats.lost}</div><div className="lbl">Contracts lost</div></div>
           <div className="stat-box"><div className="val">{livePrice === null ? '—' : livePrice.toFixed(3)}</div><div className="lbl">Live price</div></div>
@@ -279,7 +288,7 @@ export default function BotBuilderPage() {
           <div className="strategy-panel">
             <h3>Confirm live bot trading</h3>
             <div className="sub">
-              Run bot will place real 1-tick Rise/Fall contracts on the current {activeAccount?.account_type === 'real' ? 'REAL' : 'DEMO'} Deriv account.
+              Run bot will place 1-tick Rise/Fall contracts on the current {activeAccount?.account_type === 'real' ? 'REAL' : 'DEMO'} Deriv account.
               Maximum runs: {maxRuns}. Stake: {stake} {activeAccount?.currency || 'USD'}.
             </div>
             <button className="tb-run running" onClick={confirmStart}>Confirm & Start</button>
