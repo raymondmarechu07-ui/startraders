@@ -6,11 +6,11 @@ const nextConfig = {
     const csp = [
       "default-src 'self'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "script-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
       "img-src 'self' data: blob:",
       "worker-src 'self' blob:",
       "font-src 'self' data: https://fonts.gstatic.com",
-      "connect-src 'self' https://auth.deriv.com https://api.derivws.com https://api-core.deriv.com https://*.deriv.com https://cdn.jsdelivr.net https://unpkg.com wss://api.derivws.com wss://api-core.deriv.com",
+      "connect-src 'self' https://auth.deriv.com https://api.derivws.com https://api-core.deriv.com https://*.deriv.com https://cdn.jsdelivr.net https://unpkg.com https://fonts.gstatic.com wss://api.derivws.com wss://api-core.deriv.com",
       "base-uri 'self'",
       "form-action 'self' https://auth.deriv.com",
     ].join('; ');
