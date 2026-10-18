@@ -15,6 +15,22 @@ Use Deriv's official `deriv-com/trading-bot-template` as the source reference fo
 
 The official template is a separate React/TypeScript application with its own store, router, API/session lifecycle, and sizeable dependency tree. It cannot safely be copied into the Next.js App Router as a single page. The integration must isolate the editor/runtime behind a client-only boundary and adapt its trade execution to the existing StarTraders account session, rather than initialize a second OAuth flow.
 
+## Source review findings (2026-10-18)
+
+The official template runtime entry point is `src/external/bot-skeleton/index.js`, which exports `DBot`, Blockly workspace helpers, API services, constants, and utilities. `src/external/bot-skeleton/scratch/dbot.js` initializes the Blockly workspace and connects its interpreter to the template's store/API-helper layer. Workspace state is also coordinated by `src/stores/blockly-store.ts`.
+
+The template depends on much more than `blockly`: its manifest includes `@deriv/js-interpreter`, `@deriv/deriv-api`, MobX, Deriv UI packages, translations, charting, and additional dependencies. Its `src/main.tsx` starts a separate SPA and `AuthWrapper`, so copying one DBot file or adding generic Blockly would not create a working Deriv bot.
+
+### Safe integration sequence
+
+1. Port the official bot-skeleton and its required transitive modules, preserving the upstream license and recording the upstream commit.
+2. Add a StarTraders-specific API adapter for the runtime, backed by the existing authenticated account/session. Do not import the template's OAuth wrapper or create a second login path.
+3. Mount the workspace client-side in the existing Bot Builder route, with teardown for Blockly, tick subscriptions, proposals, and open-contract subscriptions.
+4. Bind runtime account identity to `activeAccount`; account changes/disconnects must abort new purchases and reset the runtime safely.
+5. Add compatible runtime dependencies and lockfile entries together, then run the production build and demo-account smoke tests before making the PR ready.
+
+This review has not yet ported the runtime or verified the build. The sequence above is the implementation path, not a claim of completed integration.
+
 ## Acceptance checklist
 
 - [ ] Official Blockly workspace and Deriv-specific blocks render inside StarTraders navy/cyan layout.
