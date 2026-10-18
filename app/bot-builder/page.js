@@ -80,6 +80,12 @@ export default function BotBuilderPage() {
           subscribe: 1,
         });
 
+        // Stop can be pressed while the proposal is loading; avoid buying afterward.
+        if (!runningRef.current) {
+          activeContractRef.current = false;
+          return;
+        }
+
         const bought = await buyContract(proposal.id, proposal.ask_price || proposal.price);
         setStats((current) => ({ ...current, runs: current.runs + 1 }));
 
