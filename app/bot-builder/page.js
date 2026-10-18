@@ -43,11 +43,34 @@ export default function BotBuilderPage() {
   const statsRef = useRef(stats);
   const stakeRef = useRef(stake);
   const maxRunsRef = useRef(maxRuns);
+  const accountIdentityRef = useRef(null);
 
   useEffect(() => { runningRef.current = running; }, [running]);
   useEffect(() => { statsRef.current = stats; }, [stats]);
   useEffect(() => { stakeRef.current = stake; }, [stake]);
   useEffect(() => { maxRunsRef.current = maxRuns; }, [maxRuns]);
+  useEffect(() => {
+    const nextIdentity = activeAccount
+      ? `${activeAccount.account_id || activeAccount.loginid || ''}:${activeAccount.account_type || ''}`
+      : null;
+    const previousIdentity = accountIdentityRef.current;
+    if (previousIdentity && nextIdentity && previousIdentity !== nextIdentity) {
+      runningRef.current = false;
+      setRunning(false);
+      setConfirmOpen(false);
+      setError('Your selected Deriv account changed. The bot has been stopped. Confirm the new account before restarting.');
+      previousQuoteRef.current = null;
+    }
+    if (nextIdentity) accountIdentityRef.current = nextIdentity;
+    if (!activeAccount && previousIdentity) {
+      runningRef.current = false;
+      setRunning(false);
+      setConfirmOpen(false);
+      setError('Deriv account disconnected. The bot has been stopped.');
+      previousQuoteRef.current = null;
+      accountIdentityRef.current = null;
+    }
+  }, [activeAccount?.account_id, activeAccount?.loginid, activeAccount?.account_type]);
 
   useEffect(() => {
     if (status !== 'connected') return undefined;
