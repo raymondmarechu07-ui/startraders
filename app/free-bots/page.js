@@ -138,6 +138,11 @@ export default function FreeBotsPage() {
         };
         if (barrier !== undefined) proposalParams.barrier = barrier;
         const proposal = await requestProposal(proposalParams);
+        // If Stop was pressed while waiting for the proposal, do not buy it.
+        if (!runningRef.current) {
+          activeContractRef.current = false;
+          return;
+        }
         const bought = await buyContract(proposal.id, proposal.ask_price || proposal.price);
         runsRef.current += 1;
         setRuns(runsRef.current);
