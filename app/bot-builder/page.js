@@ -43,11 +43,41 @@ export default function BotBuilderPage() {
   const statsRef = useRef(stats);
   const stakeRef = useRef(stake);
   const maxRunsRef = useRef(maxRuns);
+  const accountIdentityRef = useRef(null);
 
   useEffect(() => { runningRef.current = running; }, [running]);
   useEffect(() => { statsRef.current = stats; }, [stats]);
   useEffect(() => { stakeRef.current = stake; }, [stake]);
   useEffect(() => { maxRunsRef.current = maxRuns; }, [maxRuns]);
+  useEffect(() => {
+    const nextIdentity = activeAccount
+      ? `${activeAccount.account_id || activeAccount.loginid || ''}:${activeAccount.account_type || ''}`
+      : null;
+    const previousIdentity = accountIdentityRef.current;
+    if (previousIdentity && nextIdentity && previousIdentity !== nextIdentity) {
+      runningRef.current = false;
+      setRunning(false);
+      setConfirmOpen(false);
+      setError('Your selected Deriv account changed. The bot has been stopped. Confirm the new account before restarting.');
+      previousQuoteRef.current = null;
+    }
+    if (nextIdentity) accountIdentityRef.current = nextIdentity;
+    if (!activeAccount && previousIdentity) {
+      runningRef.current = false;
+      setRunning(false);
+      setConfirmOpen(false);
+      setError('Deriv account disconnected. The bot has been stopped.');
+      previousQuoteRef.current = null;
+      accountIdentityRef.current = null;
+    }
+    if (status !== 'connected' && runningRef.current) {
+      runningRef.current = false;
+      setRunning(false);
+      setConfirmOpen(false);
+      setError('Deriv connection lost or is changing. The bot has been stopped; reconnect and confirm before restarting.');
+      previousQuoteRef.current = null;
+    }
+  }, [activeAccount?.account_id, activeAccount?.loginid, activeAccount?.account_type, status]);
 
   useEffect(() => {
     if (status !== 'connected') return undefined;
@@ -80,6 +110,12 @@ export default function BotBuilderPage() {
           subscribe: 1,
         });
 
+        // Stop can be pressed while the proposal is loading; avoid buying afterward.
+        if (!runningRef.current) {
+          activeContractRef.current = false;
+          return;
+        }
+
         const bought = await buyContract(proposal.id, proposal.ask_price || proposal.price);
         setStats((current) => ({ ...current, runs: current.runs + 1 }));
 
@@ -106,8 +142,17 @@ export default function BotBuilderPage() {
   }, [status, activeAccount, subscribeTicks, unsubscribeTicks, requestProposal, buyContract, subscribeContract]);
 
   function startBot() {
-    if (status !== 'connected') {
-      setError('Connect a Deriv account before running the bot.');
+    if (status !== 'connected' || !activeAccount) {
+      setError('Connect to Deriv and select an account before running the bot.');
+      return;
+    }
+    const amount = Number(stake);
+    if (!Number.isFinite(amount) || amount < 0.35) {
+      setError('Enter a valid stake of at least 0.35 in your account currency.');
+      return;
+    }
+    if (!Number.isInteger(Number(maxRuns)) || Number(maxRuns) < 1 || Number(maxRuns) > 100) {
+      setError('Maximum trades must be a whole number from 1 to 100.');
       return;
     }
     setConfirmOpen(true);
@@ -116,15 +161,15 @@ export default function BotBuilderPage() {
   function confirmStart() {
     setConfirmOpen(false);
     setError('');
-    activeContractRef.current = false;
+    // Keep an outstanding contract locked until Deriv reports settlement.
     setRunning(true);
     runningRef.current = true;
   }
 
   function stopBot() {
+    // Stop future entries, but let an already purchased contract settle.
     setRunning(false);
     runningRef.current = false;
-    activeContractRef.current = false;
   }
 
   function dropBlock(event) {
@@ -179,6 +224,22 @@ export default function BotBuilderPage() {
     <>
       <UtilityBar />
       <TabNav />
+
+      <div
+        role="status"
+        style={{
+          margin: '12px 16px',
+          padding: '10px 14px',
+          border: '1px solid rgba(34, 211, 238, 0.35)',
+          borderRadius: 10,
+          background: 'rgba(8, 47, 73, 0.32)',
+          color: '#bae6fd',
+          fontSize: 13,
+          lineHeight: 1.5,
+        }}
+      >
+        <strong>DBot integration in progress:</strong> this screen is still the legacy StarTraders builder, not Deriv’s official Blockly engine. The current visual blocks do not define the live trading logic yet. Use demo funds only while the genuine editor/runtime is being integrated.
+      </div>
 
       <div className="builder-toolbar">
         <label className="tb-btn">
@@ -248,8 +309,8 @@ export default function BotBuilderPage() {
 
       <div className="stats-panel visible">
         <div className="stats-grid">
-          <div className="stat-box"><div className={'val ' + (stats.pnl >= 0 ? 'pos' : 'neg')}>{stats.pnl >= 0 ? '+$' : '-$'}{Math.abs(stats.pnl).toFixed(2)}</div><div className="lbl">Real profit/loss</div></div>
-          <div className="stat-box"><div className="val">{stats.runs}</div><div className="lbl">Real contracts</div></div>
+          <div className="stat-box"><div className={'val ' + (stats.pnl >= 0 ? 'pos' : 'neg')}>{stats.pnl >= 0 ? '+$' : '-$'}{Math.abs(stats.pnl).toFixed(2)}</div><div className="lbl">Realized P/L</div></div>
+          <div className="stat-box"><div className="val">{stats.runs}</div><div className="lbl">Contracts bought</div></div>
           <div className="stat-box"><div className="val pos">{stats.won}</div><div className="lbl">Contracts won</div></div>
           <div className="stat-box"><div className="val neg">{stats.lost}</div><div className="lbl">Contracts lost</div></div>
           <div className="stat-box"><div className="val">{livePrice === null ? '—' : livePrice.toFixed(3)}</div><div className="lbl">Live price</div></div>
@@ -279,7 +340,7 @@ export default function BotBuilderPage() {
           <div className="strategy-panel">
             <h3>Confirm live bot trading</h3>
             <div className="sub">
-              Run bot will place real 1-tick Rise/Fall contracts on the current {activeAccount?.account_type === 'real' ? 'REAL' : 'DEMO'} Deriv account.
+              Run bot will place 1-tick Rise/Fall contracts on the current {activeAccount?.account_type === 'real' ? 'REAL' : 'DEMO'} Deriv account.
               Maximum runs: {maxRuns}. Stake: {stake} {activeAccount?.currency || 'USD'}.
             </div>
             <button className="tb-run running" onClick={confirmStart}>Confirm & Start</button>
