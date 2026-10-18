@@ -225,6 +225,22 @@ export default function BotBuilderPage() {
       <UtilityBar />
       <TabNav />
 
+      <div
+        role="status"
+        style={{
+          margin: '12px 16px',
+          padding: '10px 14px',
+          border: '1px solid rgba(34, 211, 238, 0.35)',
+          borderRadius: 10,
+          background: 'rgba(8, 47, 73, 0.32)',
+          color: '#bae6fd',
+          fontSize: 13,
+          lineHeight: 1.5,
+        }}
+      >
+        <strong>DBot integration in progress:</strong> this screen is still the legacy StarTraders builder, not Deriv’s official Blockly engine. The current visual blocks do not define the live trading logic yet. Use demo funds only while the genuine editor/runtime is being integrated.
+      </div>
+
       <div className="builder-toolbar">
         <label className="tb-btn">
           Import
