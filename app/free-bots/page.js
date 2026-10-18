@@ -61,12 +61,35 @@ export default function FreeBotsPage() {
   const stakeRef = useRef(stake);
   const botRef = useRef(selectedBot);
   const accountRef = useRef(activeAccount);
+  const accountIdentityRef = useRef(null);
 
   useEffect(() => { runningRef.current = running; }, [running]);
   useEffect(() => { maxRunsRef.current = maxRuns; }, [maxRuns]);
   useEffect(() => { stakeRef.current = stake; }, [stake]);
   useEffect(() => { botRef.current = selectedBot; }, [selectedBot]);
   useEffect(() => { accountRef.current = activeAccount; }, [activeAccount]);
+  useEffect(() => {
+    const nextIdentity = activeAccount
+      ? `${activeAccount.account_id || activeAccount.loginid || ''}:${activeAccount.account_type || ''}`
+      : null;
+    const previousIdentity = accountIdentityRef.current;
+    if (previousIdentity && nextIdentity && previousIdentity !== nextIdentity) {
+      runningRef.current = false;
+      setRunning(false);
+      setConfirmOpen(false);
+      setError('Your selected Deriv account changed. The bot has been stopped. Confirm the new account before restarting.');
+      previousQuoteRef.current = null;
+    }
+    if (nextIdentity) accountIdentityRef.current = nextIdentity;
+    if (!activeAccount && previousIdentity) {
+      runningRef.current = false;
+      setRunning(false);
+      setConfirmOpen(false);
+      setError('Deriv account disconnected. The bot has been stopped.');
+      previousQuoteRef.current = null;
+      accountIdentityRef.current = null;
+    }
+  }, [activeAccount?.account_id, activeAccount?.loginid, activeAccount?.account_type]);
 
   useEffect(() => {
     if (status !== 'connected' || !selectedBot) return undefined;
