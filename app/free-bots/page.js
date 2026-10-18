@@ -89,7 +89,14 @@ export default function FreeBotsPage() {
       previousQuoteRef.current = null;
       accountIdentityRef.current = null;
     }
-  }, [activeAccount?.account_id, activeAccount?.loginid, activeAccount?.account_type]);
+    if (status !== 'connected' && runningRef.current) {
+      runningRef.current = false;
+      setRunning(false);
+      setConfirmOpen(false);
+      setError('Deriv connection lost or is changing. The bot has been stopped; reconnect and confirm before restarting.');
+      previousQuoteRef.current = null;
+    }
+  }, [activeAccount?.account_id, activeAccount?.loginid, activeAccount?.account_type, status]);
 
   useEffect(() => {
     if (status !== 'connected' || !selectedBot) return undefined;
