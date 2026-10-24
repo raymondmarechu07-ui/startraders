@@ -2380,3 +2380,81 @@ footer {
   .dbt-nav-item svg { width: 19px; height: 19px; }
   .dbt-manual-trader .manual-trader-page { height: calc(100dvh - 108px); }
 }
+
+
+/* DBTraders-style Manual Trader contract panel. These styles only theme the
+   embedded DTrader controls; the underlying proposal and purchase handlers
+   remain the real Deriv DTrader implementation. */
+.dbt-manual-trader #derivatives_trader .trade-params {
+  box-sizing: border-box !important;
+  background: #fff !important;
+  border: 1px solid #dce2e9 !important;
+  border-radius: 3px !important;
+  box-shadow: 0 2px 8px rgba(16, 35, 58, .07) !important;
+  padding: 16px !important;
+  gap: 12px !important;
+  color: #182b42 !important;
+}
+.dbt-manual-trader #derivatives_trader .trade-params__options-wrapper {
+  gap: 10px !important;
+}
+.dbt-manual-trader #derivatives_trader .trade-params__option {
+  border: 1px solid #dce2e9 !important;
+  border-radius: 5px !important;
+  background: #fff !important;
+  color: #182b42 !important;
+}
+.dbt-manual-trader #derivatives_trader .trade-params__option .input,
+.dbt-manual-trader #derivatives_trader .trade-params__option input {
+  color: #182b42 !important;
+}
+.dbt-manual-trader #derivatives_trader .st-growth-rate-control {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  border: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+.dbt-manual-trader #derivatives_trader .st-growth-rate-control__label {
+  color: #263b52 !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+}
+.dbt-manual-trader #derivatives_trader .st-growth-rate-control__quick-picks {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+  align-items: stretch !important;
+}
+.dbt-manual-trader #derivatives_trader .st-growth-rate-control__quick-pick {
+  min-width: 0 !important;
+  min-height: 36px !important;
+  padding: 7px 4px !important;
+  border: 1px solid #d5dde6 !important;
+  border-radius: 4px !important;
+  background: #f5f7fa !important;
+  color: #233a53 !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+}
+.dbt-manual-trader #derivatives_trader .st-growth-rate-control__quick-pick.is-active {
+  border-color: #0b9f92 !important;
+  background: #e0f7f3 !important;
+  color: #087c73 !important;
+  box-shadow: inset 0 0 0 1px #0b9f92 !important;
+}
+.dbt-manual-trader #derivatives_trader .st-growth-rate-control__quick-pick:disabled {
+  opacity: .5 !important;
+  cursor: not-allowed !important;
+}
+.dbt-manual-trader #derivatives_trader .purchase-button__wrapper .quill-button,
+.dbt-manual-trader #derivatives_trader .purchase-button .quill-button {
+  border-radius: 4px !important;
+}
+@media (max-width: 900px) {
+  .dbt-manual-trader #derivatives_trader .trade-params {
+    padding: 10px !important;
+  }
+}
