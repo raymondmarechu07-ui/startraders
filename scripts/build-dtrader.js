@@ -37,10 +37,9 @@ try {
   fs.mkdirSync(publicDir, { recursive: true });
 
   console.log('[StarTraders] Fetching the DTrader engine...');
-  run(git, ['clone', '--depth', '1', dtraderRepo, tempDir], root);
-  // The pinned StarTraders patch may live on a feature branch, not the default
-  // branch tip, so fetch the exact object before checking it out.
-  run(git, ['fetch', '--depth', '1', 'origin', dtraderCommit], tempDir);
+  // Clone the branch that contains the pinned StarTraders patch so the shallow
+  // checkout includes the exact engine commit, even though it is not on master.
+  run(git, ['clone', '--depth', '1', '--branch', 'startraders-dbt-growth-controls', dtraderRepo, tempDir], root);
   run(git, ['checkout', '--detach', dtraderCommit], tempDir);
 
   console.log('[StarTraders] Installing DTrader engine dependencies...');
