@@ -6,7 +6,7 @@ import UtilityBar from '@/components/UtilityBar';
 const ITEMS = [
   { label: 'Speedbot', href: '/speedbot', icon: 'M13 2 4 14h7l-1 8 9-12h-7z' },
   { label: 'AI Software', href: '/signal-analyzer', icon: 'M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z' },
-  { label: 'Auto Trader', href: '/bot-builder', icon: 'M4 8h16v12H4zM9 8V5a3 3 0 016 0v3' },
+  { label: 'Auto Trader', href: null, icon: 'M4 8h16v12H4zM9 8V5a3 3 0 016 0v3' },
   { label: 'Analysis Tool', href: '/analysis-tool', icon: 'M11 4a7 7 0 100 14 7 7 0 000-14zM21 21l-4.35-4.35' },
   { label: 'Manual Trader', href: '/manual-trader', icon: 'M3 4h18v14H3zM8 21h8M12 18v3' },
   { label: 'Bulk Trader', href: null, icon: 'M4 5h16v4H4zM4 11h16v4H4zM4 17h10v3H4z' },
