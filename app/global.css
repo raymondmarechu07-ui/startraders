@@ -2458,3 +2458,44 @@ footer {
     padding: 10px !important;
   }
 }
+
+
+.dbt-manual-trader #derivatives_trader .accumulators-info__wrapper {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  margin-top: 2px !important;
+  border: 1px solid #dce2e9 !important;
+  border-radius: 5px !important;
+  background: #f8fafc !important;
+  padding: 0 10px !important;
+}
+.dbt-manual-trader #derivatives_trader .accumulators-info__row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  min-height: 36px !important;
+  padding: 7px 0 !important;
+  border-bottom: 1px solid #e6ebf1 !important;
+  color: #52657a !important;
+}
+.dbt-manual-trader #derivatives_trader .accumulators-info__row:last-child {
+  border-bottom: 0 !important;
+}
+.dbt-manual-trader #derivatives_trader .accumulators-info__row > *:last-child {
+  color: #1c344d !important;
+  font-weight: 700 !important;
+  text-align: right !important;
+}
+.dbt-manual-trader #derivatives_trader .purchase-button__wrapper .quill-button--primary,
+.dbt-manual-trader #derivatives_trader .purchase-button .quill-button--primary {
+  background: #0fae9f !important;
+  border-color: #0fae9f !important;
+  color: #fff !important;
+}
+.dbt-manual-trader #derivatives_trader .purchase-button__wrapper .quill-button--primary:hover,
+.dbt-manual-trader #derivatives_trader .purchase-button .quill-button--primary:hover {
+  background: #078d82 !important;
+  border-color: #078d82 !important;
+}
