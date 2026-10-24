@@ -10,7 +10,7 @@ const oldOutputDir = path.join(publicDir, 'dtrader-engine');
 const dtraderRepo = 'https://github.com/raymondmarechu07-ui/startraders-dtrader.git';
 // Pin the exact tested StarTraders DTrader engine revision so a future upstream
 // change cannot silently alter the production Manual Trader build.
-const dtraderCommit = '7b6228639884b57114ecba88f522405a68eaaaa6';
+const dtraderCommit = 'bb33af15c1f23048c3592184cbcfdf9a2e5ab2e0';
 
 const run = (command, args, cwd, env = process.env) => {
   const result = spawnSync(command, args, {
@@ -38,6 +38,9 @@ try {
 
   console.log('[StarTraders] Fetching the DTrader engine...');
   run(git, ['clone', '--depth', '1', dtraderRepo, tempDir], root);
+  // The pinned StarTraders patch may live on a feature branch, not the default
+  // branch tip, so fetch the exact object before checking it out.
+  run(git, ['fetch', '--depth', '1', 'origin', dtraderCommit], tempDir);
   run(git, ['checkout', '--detach', dtraderCommit], tempDir);
 
   console.log('[StarTraders] Installing DTrader engine dependencies...');
