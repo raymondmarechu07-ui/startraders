@@ -2245,3 +2245,138 @@ footer {
     min-height: 0;
   }
 }
+
+
+/* DBTraders-reference shell: exact two-tier header/navigation structure. */
+.dbt-manual-trader {
+  height: 100dvh;
+  min-height: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+  background: #eef0f3;
+  color: #18212d;
+}
+.dbt-shell { position: relative; z-index: 35; }
+.dbt-manual-trader .utility-bar {
+  height: 59px;
+  min-height: 59px;
+  padding: 0 22px;
+  background: #101e33;
+  color: #f7f9fc;
+  border-bottom: 1px solid #20324c;
+}
+.dbt-manual-trader .utility-left { gap: 22px; }
+.dbt-manual-trader .utility-bar .logo { color: #f7f9fc; }
+.dbt-manual-trader .utility-bar .logo .star { color: #2ecb91; }
+.dbt-manual-trader .utility-bar .logo .traders {
+  background: none;
+  color: #f4f7fb;
+  -webkit-text-fill-color: #f4f7fb;
+}
+.dbt-manual-trader .utility-left > button,
+.dbt-manual-trader .reports-link {
+  color: #d9e0e9;
+}
+.dbt-manual-trader .utility-left svg { color: #d9e0e9; }
+.dbt-manual-trader .reports-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+}
+.dbt-manual-trader .utility-right {
+  min-width: 170px;
+  border: 0;
+  border-radius: 0;
+  padding: 7px 0 7px 10px;
+  background: transparent;
+  color: #00b8a9;
+}
+.dbt-manual-trader .utility-right .bal {
+  color: #00b8a9;
+  font-size: 16px;
+}
+.dbt-manual-trader .utility-right small { color: #9baabd; }
+.dbt-manual-trader .account-menu { z-index: 80; }
+.dbt-nav {
+  height: 60px;
+  background: linear-gradient(180deg, #0d2545, #102f5c);
+  border-bottom: 1px solid #203c63;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.dbt-nav::-webkit-scrollbar { display: none; }
+.dbt-nav-track {
+  display: flex;
+  align-items: stretch;
+  min-width: max-content;
+  height: 60px;
+  padding: 0 14px;
+}
+.dbt-nav-item {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 120px;
+  padding: 0 17px;
+  border: 0;
+  border-right: 1px solid rgba(255,255,255,.035);
+  border-radius: 0;
+  background: transparent;
+  color: #f2f5fa;
+  font-size: 14px;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.dbt-nav-item svg {
+  width: 24px;
+  height: 24px;
+  color: #ff7048;
+  flex: 0 0 auto;
+}
+.dbt-nav-item:hover { background: rgba(255,255,255,.055); }
+.dbt-nav-item.active {
+  background: #17458e;
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(70,130,255,.12);
+}
+.dbt-nav-item.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: #ff7048;
+}
+.dbt-nav-item.unavailable { opacity: .92; }
+.dbt-manual-trader .manual-trader-page {
+  height: calc(100dvh - 119px);
+  min-height: 0;
+  background: #f4f5f7;
+}
+.dbt-manual-trader .manual-trader-workspace,
+.dbt-manual-trader .manual-trader-workspace #derivatives_trader,
+.dbt-manual-trader #derivatives_trader {
+  height: 100%;
+  background: #f4f5f7;
+}
+@media (max-width: 700px) {
+  .dbt-manual-trader .utility-bar {
+    height: 56px;
+    min-height: 56px;
+    padding: 0 8px;
+  }
+  .dbt-manual-trader .utility-left { gap: 7px; }
+  .dbt-manual-trader .reports-link { display: none; }
+  .dbt-nav, .dbt-nav-track { height: 52px; }
+  .dbt-nav-item { min-width: 98px; padding: 0 11px; gap: 6px; font-size: 11px; }
+  .dbt-nav-item svg { width: 19px; height: 19px; }
+  .dbt-manual-trader .manual-trader-page { height: calc(100dvh - 108px); }
+}
