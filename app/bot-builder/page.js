@@ -32,6 +32,31 @@ export default function BotBuilderPage() {
   const [quote, setQuote] = useState(null);
   const [message, setMessage] = useState('');
   const [symbols, setSymbols] = useState([]);
+  const [blocks, setBlocks] = useState(['trigger', 'condition', 'purchase', 'risk']);
+  const [draggedBlock, setDraggedBlock] = useState(null);
+  const blockInfo = {
+    trigger: { title: 'WHEN market updates', detail: 'Read the latest tick from the selected market', color: '#2563eb' },
+    condition: { title: 'IF last digit matches rule', detail: `${condition === 'over' ? 'Greater than' : condition === 'under' ? 'Less than' : 'Equal to'} ${barrier}`, color: '#7c3aed' },
+    purchase: { title: 'BUY digit contract', detail: `${condition === 'under' ? 'Digit Under' : condition === 'equals' ? 'Digit Match' : 'Digit Over'} · ${stake || '0.50'} ${activeAccount?.currency || 'USD'} · 1 tick`, color: '#c2410c' },
+    risk: { title: 'STOP when risk limit reached', detail: `${maxTrades || '10'} trades or ${maxLoss || '5'} ${activeAccount?.currency || 'USD'} session loss`, color: '#047857' },
+  };
+  function moveBlock(target) {
+    if (!draggedBlock || draggedBlock === target) return;
+    setBlocks((current) => {
+      const next = [...current];
+      const from = next.indexOf(draggedBlock);
+      const to = next.indexOf(target);
+      if (from < 0 || to < 0) return current;
+      next.splice(from, 1);
+      next.splice(to, 0, draggedBlock);
+      return next;
+    });
+    setDraggedBlock(null);
+  }
+  function addBlock(id) {
+    setBlocks((current) => current.includes(id) ? current : [...current, id]);
+  }
+  function resetBlocks() { setBlocks(['trigger', 'condition', 'purchase', 'risk']); }
   const runningRef = useRef(false);
   const contractRef = useRef(false);
   const tickCountRef = useRef(0);
@@ -215,6 +240,26 @@ export default function BotBuilderPage() {
           <div style={{ ...panel, padding: '10px 14px' }}><div style={{ color: '#9ca3af', fontSize: 12 }}>CONNECTION</div><strong style={{ color: status === 'connected' ? '#4ade80' : '#fbbf24' }}>{status === 'connected' ? 'Connected' : status === 'connecting' ? 'Connecting…' : 'Not connected'}</strong><div style={{ fontSize: 12, color: '#cbd5e1', marginTop: 5 }}>{activeAccount ? activeAccount.account_id + ' · ' + (activeAccount.account_type === 'real' ? 'REAL' : 'DEMO') : 'Sign in to choose an account'}</div></div>
         </div>
 
+        <section style={{ ...panel, marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+            <div><h2 style={{ margin: '0 0 5px', fontSize: 21 }}>Visual strategy workspace</h2><p style={{ margin: 0, color: '#9ca3af', fontSize: 13 }}>Drag blocks to reorder your strategy. The rule and risk blocks are linked to the settings below.</p></div>
+            <button type="button" onClick={resetBlocks} style={{ border: '1px solid #374151', borderRadius: 8, padding: '9px 12px', background: '#0b1220', color: '#e5e7eb', cursor: 'pointer' }}>Reset blocks</button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px,0.8fr) minmax(260px,1.7fr)', gap: 16, marginTop: 18 }}>
+            <div style={{ background: '#0b1220', border: '1px solid #263244', borderRadius: 12, padding: 14 }}>
+              <h3 style={{ fontSize: 14, color: '#cbd5e1', margin: '0 0 12px' }}>BLOCK TOOLBOX</h3>
+              {Object.keys(blockInfo).map((id) => <button key={id} type="button" onClick={() => addBlock(id)} disabled={blocks.includes(id)} style={{ display: 'block', width: '100%', textAlign: 'left', marginBottom: 8, padding: 10, borderRadius: 8, border: '1px solid ' + blockInfo[id].color, background: '#111827', color: blocks.includes(id) ? '#64748b' : '#f8fafc', cursor: blocks.includes(id) ? 'not-allowed' : 'pointer', fontSize: 12 }}>{blocks.includes(id) ? '✓ ' : '+ '}{blockInfo[id].title}</button>)}
+              <p style={{ color: '#64748b', fontSize: 11, lineHeight: 1.5, marginBottom: 0 }}>Choose a block to add it to the workspace. Drag blocks on the right to change their order.</p>
+            </div>
+            <div style={{ minHeight: 260, background: 'linear-gradient(180deg,#0b1220,#0e1727)', border: '1px dashed #475569', borderRadius: 12, padding: 14 }}>
+              <div style={{ fontSize: 12, letterSpacing: 1, color: '#94a3b8', marginBottom: 12 }}>MY STRATEGY · {blocks.length} BLOCKS</div>
+              {blocks.map((id, index) => <div key={id} draggable={!running} onDragStart={() => setDraggedBlock(id)} onDragOver={(event) => event.preventDefault()} onDrop={() => moveBlock(id)} onDragEnd={() => setDraggedBlock(null)} style={{ position: 'relative', padding: '13px 14px', marginBottom: 10, borderRadius: '9px 9px 9px 3px', borderLeft: '5px solid ' + blockInfo[id].color, background: '#172033', boxShadow: draggedBlock === id ? '0 0 0 2px #fb923c' : '0 3px 8px #0003', cursor: running ? 'default' : 'grab', opacity: draggedBlock === id ? 0.6 : 1 }}><div style={{ fontSize: 14, fontWeight: 800 }}>{index + 1}. {blockInfo[id].title}</div><div style={{ fontSize: 12, color: '#aab6c8', marginTop: 5 }}>{blockInfo[id].detail}</div></div>)}
+              {blocks.length === 0 && <p style={{ color: '#94a3b8' }}>Add blocks from the toolbox to start composing your strategy.</p>}
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 8 }}>Workspace preview. Execution currently uses the configured digit rule and safety controls below; reordering blocks changes the visual layout, not the trading engine.</div>
+            </div>
+          </div>
+        </section>
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(290px,1fr))', gap: 18 }}>
           <section style={panel}>
             <h2 style={{ marginTop: 0, fontSize: 19 }}>1. Choose your market</h2>
@@ -271,7 +316,7 @@ export default function BotBuilderPage() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}><button onClick={() => setConfirmOpen(false)} style={{ ...field, width: 'auto', marginTop: 0, cursor: 'pointer' }}>Cancel</button><button onClick={confirmStart} style={{ ...field, width: 'auto', marginTop: 0, border: 0, background: '#fb923c', color: '#111827', fontWeight: 800, cursor: 'pointer' }}>Confirm & Start</button></div>
           </div>
         </div>}
-        <p style={{ color: '#9ca3af', fontSize: 12, marginTop: 18 }}>This first in-app builder creates a simple digit strategy. It is not yet the full Blockly block library or XML import/export experience of Deriv Bot.</p>
+        <p style={{ color: '#9ca3af', fontSize: 12, marginTop: 18 }}>StarTraders now includes a draggable visual strategy workspace. This is an initial builder, not yet full compatibility with Deriv Bot's Blockly blocks or XML import/export.</p>
       </main>
     </>
   );
