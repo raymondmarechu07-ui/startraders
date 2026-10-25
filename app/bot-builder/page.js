@@ -49,6 +49,7 @@ export default function BotBuilderPage() {
       if (from < 0 || to < 0) return current;
       next.splice(from, 1);
       next.splice(to, 0, draggedBlock);
+      blocksRef.current = next;
       return next;
     });
     setDraggedBlock(null);
