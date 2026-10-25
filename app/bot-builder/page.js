@@ -54,9 +54,36 @@ export default function BotBuilderPage() {
     setDraggedBlock(null);
   }
   function addBlock(id) {
-    setBlocks((current) => current.includes(id) ? current : [...current, id]);
+    setBlocks((current) => { const next = current.includes(id) ? current : [...current, id]; blocksRef.current = next; return next; });
   }
-  function resetBlocks() { setBlocks(['trigger', 'condition', 'purchase', 'risk']); }
+  function resetBlocks() { const defaults = ['trigger', 'condition', 'purchase', 'risk']; blocksRef.current = defaults; setBlocks(defaults); }
+  function applyBlocks(next) { blocksRef.current = next; setBlocks(next); }
+  function saveStrategy() {
+    const payload = { version: 1, name: 'My StarTraders strategy', blocks, config: { market, condition, barrier, stake, maxTrades, maxLoss, speed } };
+    const encoded = JSON.stringify(payload, null, 2);
+    setStrategyJson(encoded);
+    try { window.localStorage.setItem('startraders-bot-builder-strategy', encoded); setMessage('Strategy saved in this browser. Copy or export the JSON to keep a backup.'); }
+    catch { setMessage('Strategy JSON prepared below. Copy it to keep a backup.'); }
+  }
+  function loadStrategy() {
+    try {
+      const raw = strategyJson.trim() || window.localStorage.getItem('startraders-bot-builder-strategy');
+      if (!raw) { setMessage('No saved strategy found. Paste a previously exported strategy JSON first.'); return; }
+      const parsed = JSON.parse(raw);
+      const allowed = ['trigger', 'condition', 'purchase', 'risk'];
+      if (parsed.version !== 1 || !Array.isArray(parsed.blocks) || parsed.blocks.some((id) => !allowed.includes(id)) || !parsed.config) throw new Error('Unsupported StarTraders strategy file.');
+      const cfg = parsed.config;
+      applyBlocks(parsed.blocks);
+      if (cfg.market) setMarket(String(cfg.market));
+      if (['over', 'under', 'equals'].includes(cfg.condition)) setCondition(cfg.condition);
+      if (/^[0-9]$/.test(String(cfg.barrier))) setBarrier(String(cfg.barrier));
+      if (Number.isFinite(Number(cfg.stake))) setStake(String(cfg.stake));
+      if (Number.isFinite(Number(cfg.maxTrades))) setMaxTrades(String(cfg.maxTrades));
+      if (Number.isFinite(Number(cfg.maxLoss))) setMaxLoss(String(cfg.maxLoss));
+      if (['normal', 'fast'].includes(cfg.speed)) setSpeed(cfg.speed);
+      setMessage('Strategy loaded. Review settings before running.');
+    } catch (err) { setMessage(err.message || 'Could not load strategy JSON.'); }
+  }
   const runningRef = useRef(false);
   const contractRef = useRef(false);
   const tickCountRef = useRef(0);
@@ -64,6 +91,8 @@ export default function BotBuilderPage() {
   const pnlRef = useRef(0);
   const configRef = useRef({});
   const onTickRef = useRef(null);
+  const blocksRef = useRef(['trigger', 'condition', 'purchase', 'risk']);
+  const [strategyJson, setStrategyJson] = useState('');
 
   configRef.current = { market, condition, barrier: Number(barrier), stake: Number(stake), maxTrades: Number(maxTrades), maxLoss: Number(maxLoss), speed, currency: activeAccount?.currency || 'USD' };
 
@@ -112,6 +141,15 @@ export default function BotBuilderPage() {
     setQuote(Number(tick.quote));
     const cfg = configRef.current;
     if (!runningRef.current || contractRef.current) return;
+    const plan = blocksRef.current;
+    const triggerIndex = plan.indexOf('trigger');
+    const conditionIndex = plan.indexOf('condition');
+    const purchaseIndex = plan.indexOf('purchase');
+    const riskIndex = plan.indexOf('risk');
+    if (triggerIndex < 0 || conditionIndex < 0 || purchaseIndex < 0 || riskIndex < 0 || !(triggerIndex < conditionIndex && conditionIndex < purchaseIndex && purchaseIndex < riskIndex)) {
+      stop('Strategy blocks are incomplete or out of order. Arrange WHEN → IF → BUY → STOP in the workspace before running.');
+      return;
+    }
     if (tradesRef.current >= cfg.maxTrades) {
       stop('Maximum number of trades reached. Bot stopped.');
       return;
@@ -244,6 +282,8 @@ export default function BotBuilderPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div><h2 style={{ margin: '0 0 5px', fontSize: 21 }}>Visual strategy workspace</h2><p style={{ margin: 0, color: '#9ca3af', fontSize: 13 }}>Drag blocks to reorder your strategy. The rule and risk blocks are linked to the settings below.</p></div>
             <button type="button" onClick={resetBlocks} style={{ border: '1px solid #374151', borderRadius: 8, padding: '9px 12px', background: '#0b1220', color: '#e5e7eb', cursor: 'pointer' }}>Reset blocks</button>
+            <button type="button" onClick={saveStrategy} style={{ border: '1px solid #374151', borderRadius: 8, padding: '9px 12px', background: '#0b1220', color: '#e5e7eb', cursor: 'pointer' }}>Save strategy</button>
+            <button type="button" onClick={loadStrategy} style={{ border: '1px solid #374151', borderRadius: 8, padding: '9px 12px', background: '#0b1220', color: '#e5e7eb', cursor: 'pointer' }}>Load strategy</button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px,0.8fr) minmax(260px,1.7fr)', gap: 16, marginTop: 18 }}>
             <div style={{ background: '#0b1220', border: '1px solid #263244', borderRadius: 12, padding: 14 }}>
@@ -255,7 +295,8 @@ export default function BotBuilderPage() {
               <div style={{ fontSize: 12, letterSpacing: 1, color: '#94a3b8', marginBottom: 12 }}>MY STRATEGY · {blocks.length} BLOCKS</div>
               {blocks.map((id, index) => <div key={id} draggable={!running} onDragStart={() => setDraggedBlock(id)} onDragOver={(event) => event.preventDefault()} onDrop={() => moveBlock(id)} onDragEnd={() => setDraggedBlock(null)} style={{ position: 'relative', padding: '13px 14px', marginBottom: 10, borderRadius: '9px 9px 9px 3px', borderLeft: '5px solid ' + blockInfo[id].color, background: '#172033', boxShadow: draggedBlock === id ? '0 0 0 2px #fb923c' : '0 3px 8px #0003', cursor: running ? 'default' : 'grab', opacity: draggedBlock === id ? 0.6 : 1 }}><div style={{ fontSize: 14, fontWeight: 800 }}>{index + 1}. {blockInfo[id].title}</div><div style={{ fontSize: 12, color: '#aab6c8', marginTop: 5 }}>{blockInfo[id].detail}</div></div>)}
               {blocks.length === 0 && <p style={{ color: '#94a3b8' }}>Add blocks from the toolbox to start composing your strategy.</p>}
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 8 }}>Workspace preview. Execution currently uses the configured digit rule and safety controls below; reordering blocks changes the visual layout, not the trading engine.</div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 8 }}>Executable order required: WHEN → IF → BUY → STOP. If blocks are missing or out of order, the bot refuses to trade.</div>
+              <label style={{ ...label, marginTop: 14 }}>Strategy JSON (copy for backup or paste to import)</label><textarea value={strategyJson} onChange={(e) => setStrategyJson(e.target.value)} rows={5} style={{ ...field, fontFamily: 'monospace', fontSize: 12 }} placeholder="Save a strategy to generate JSON, or paste an exported strategy here." />
             </div>
           </div>
         </section>
@@ -316,7 +357,7 @@ export default function BotBuilderPage() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}><button onClick={() => setConfirmOpen(false)} style={{ ...field, width: 'auto', marginTop: 0, cursor: 'pointer' }}>Cancel</button><button onClick={confirmStart} style={{ ...field, width: 'auto', marginTop: 0, border: 0, background: '#fb923c', color: '#111827', fontWeight: 800, cursor: 'pointer' }}>Confirm & Start</button></div>
           </div>
         </div>}
-        <p style={{ color: '#9ca3af', fontSize: 12, marginTop: 18 }}>StarTraders now includes a draggable visual strategy workspace. This is an initial builder, not yet full compatibility with Deriv Bot's Blockly blocks or XML import/export.</p>
+        <p style={{ color: '#9ca3af', fontSize: 12, marginTop: 18 }}>The visual blocks now gate strategy execution and strategies can be saved or loaded as StarTraders JSON. This is not yet full compatibility with Deriv Bot's Blockly blocks or XML import/export.</p>
       </main>
     </>
   );
