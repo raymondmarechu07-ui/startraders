@@ -65,7 +65,7 @@ export default function BotBuilderPage() {
   const [isRunningDemo, setIsRunningDemo] = useState(false);
   const [activeContract, setActiveContract] = useState(null);
   const [tradeUpdates, setTradeUpdates] = useState([]);
-  const { accounts, activeAccount, isLoggedIn, status: connectionStatus, login, requestProposal, buyContract, subscribeContract } = useDeriv();
+  const { accounts, activeAccount, activeAccountId, isLoggedIn, status: connectionStatus, login, switchAccount, requestProposal, buyContract, subscribeContract, sellContract } = useDeriv();
   const isDemoAccount = Boolean(activeAccount?.account_id && /^VRTC/i.test(activeAccount.account_id));
 
   const updateCount = useCallback(() => {
@@ -239,6 +239,18 @@ export default function BotBuilderPage() {
     }
   };
 
+  const stopActiveContract = async () => {
+    if (!activeContract || activeContract.is_sold) return;
+    if (!window.confirm('Ask Deriv to sell this open demo contract now? Deriv may reject the sale if it is not sellable.')) return;
+    try {
+      setNotice(`Requesting a sell for demo contract #${activeContract.contract_id}…`);
+      await sellContract(activeContract.contract_id);
+      setNotice('Sell request sent. Waiting for Deriv to confirm the final contract status.');
+    } catch (error) {
+      setNotice(error?.message || 'Deriv could not sell this contract. It may not be sellable at this time.');
+    }
+  };
+
   const runDemoCheck = async () => {
     const ws = workspaceRef.current;
     if (!ws) return;
@@ -369,6 +381,7 @@ export default function BotBuilderPage() {
         <label style={{ color: '#91a0bc', fontSize: 12 }}>Strategy name <input value={strategyName} onChange={(e) => setStrategyName(e.target.value)} style={{ marginLeft: 8, background: '#111a2c', border: '1px solid #34425e', color: '#e8edf7', borderRadius: 7, padding: '7px 9px', width: 210 }} /></label>
         <span style={{ color: '#91a0bc', fontSize: 12 }}>{blockCount} blocks in workspace</span>
         <span style={{ color: isLoggedIn && isDemoAccount && connectionStatus === 'connected' ? '#55dfb1' : '#fbbf24', fontSize: 12, fontWeight: 700 }}>{isLoggedIn ? (isDemoAccount ? `DEMO ACCOUNT · ${connectionStatus.toUpperCase()}` : 'LIVE ACCOUNT · AUTOMATION BLOCKED') : 'DERIV NOT CONNECTED'}</span>
+        {isLoggedIn && <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#aab8d0' }}>Account <select value={activeAccountId || ''} onChange={(event) => switchAccount(event.target.value)} style={{ background: '#111b30', color: '#e7eefb', border: '1px solid #34425e', borderRadius: 7, padding: '7px 9px', maxWidth: 230 }}>{accounts.map((account) => <option key={account.account_id} value={account.account_id}>{account.account_id}{account.currency ? ` · ${account.currency}` : ''}{/^VRTC/i.test(account.account_id) ? ' · Demo' : ' · Real'}</option>)}</select></label>}
         {!isLoggedIn && <button style={palette.button} onClick={login}>Connect Deriv</button>}
       </section>
 
@@ -384,6 +397,7 @@ export default function BotBuilderPage() {
         <article style={{ padding: 16, border: '1px solid #26314a', background: '#111a2c', borderRadius: 12 }}>
           <h2 style={{ margin: '0 0 10px', fontSize: 14 }}>Execution monitor</h2>
           <p style={palette.muted}>{activeContract ? `Contract #${activeContract.contract_id} · ${activeContract.symbol} · ${activeContract.direction === 'CALL' ? 'Rise' : 'Fall'} · ${activeContract.is_sold ? 'Settled' : 'Open'} · P/L ${Number(activeContract.profit || 0).toFixed(2)} ${activeAccount?.currency || ''}` : 'No contract running. Execution is demo-only and submits at most one contract per click.'}</p>
+          {activeContract && !activeContract.is_sold && <button style={{ ...palette.button, borderColor: '#a44b5a', color: '#ffb4bd', marginTop: 8 }} onClick={stopActiveContract}>Request sell / stop contract</button>}
           {tradeUpdates.length > 0 && <div style={{ overflowX: 'auto', marginTop: 10 }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}><thead><tr>{['Contract','Market','Direction','Status','Profit'].map((x) => <th key={x} style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #34425e', color: '#91a0bc' }}>{x}</th>)}</tr></thead><tbody>{tradeUpdates.map((item) => <tr key={item.contract_id}><td style={{ padding: 8, borderBottom: '1px solid #26314a' }}>#{item.contract_id}</td><td style={{ padding: 8, borderBottom: '1px solid #26314a' }}>{item.symbol}</td><td style={{ padding: 8, borderBottom: '1px solid #26314a' }}>{item.direction === 'CALL' ? 'Rise' : 'Fall'}</td><td style={{ padding: 8, borderBottom: '1px solid #26314a' }}>{item.status}</td><td style={{ padding: 8, borderBottom: '1px solid #26314a' }}>{Number(item.profit || 0).toFixed(2)}</td></tr>)}</tbody></table></div>}
         </article>
       </section>
