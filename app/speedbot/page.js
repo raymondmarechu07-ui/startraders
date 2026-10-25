@@ -27,6 +27,7 @@ export default function SpeedbotPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [stake, setStake] = useState(0.5);
   const [maxRuns, setMaxRuns] = useState(10);
+  const [maxLoss, setMaxLoss] = useState(5);
 
   const runningRef = useRef(false);
   const activeContractRef = useRef(false);
@@ -35,6 +36,13 @@ export default function SpeedbotPage() {
   useEffect(() => {
     runningRef.current = running;
   }, [running]);
+
+  useEffect(() => {
+    if (running && Number.isFinite(Number(maxLoss)) && Number(maxLoss) > 0 && pnl <= -Number(maxLoss)) {
+      stopRun();
+      setError('Maximum session loss reached. The bot has stopped opening new contracts.');
+    }
+  }, [pnl, maxLoss, running]);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,6 +154,10 @@ export default function SpeedbotPage() {
       setError('Max runs must be a whole number from 1 to 100.');
       return;
     }
+    if (!Number.isFinite(Number(maxLoss)) || Number(maxLoss) <= 0) {
+      setError('Maximum session loss must be greater than zero.');
+      return;
+    }
     setConfirmOpen(true);
   }
 
@@ -198,6 +210,7 @@ export default function SpeedbotPage() {
             <div className="field-box"><label>Ticks</label><input type="number" value="1" readOnly /></div>
             <div className="field-box"><label>Stake</label><input type="number" min="0.35" step="0.1" value={stake} onChange={(e) => setStake(e.target.value)} /></div>
             <div className="field-box"><label>Max runs</label><input type="number" min="1" max="100" value={maxRuns} onChange={(e) => setMaxRuns(Math.max(1, Number(e.target.value) || 1))} /></div>
+            <div className="field-box"><label>Max session loss ({activeAccount?.currency || 'USD'})</label><input type="number" min="0.01" step="0.1" value={maxLoss} onChange={(e) => setMaxLoss(e.target.value)} /></div>
             <div className="field-box"><label>Account</label><input value={activeAccount?.account_id || 'Not connected'} readOnly /></div>
           </div>
 
@@ -215,7 +228,7 @@ export default function SpeedbotPage() {
                 <h3>Confirm live trading</h3>
                 <div className="sub">
                   Start bot will place real Deriv contracts on the currently selected {activeAccount?.account_type === 'real' ? 'REAL' : 'DEMO'} account.
-                  Maximum runs: {maxRuns}. Stake per contract: {stake} {activeAccount?.currency || 'USD'}.
+                  Maximum runs: {maxRuns}. Stake per contract: {stake} {activeAccount?.currency || 'USD'}. Stop opening new contracts if session P/L reaches -{maxLoss} {activeAccount?.currency || 'USD'}.
                 </div>
                 <div className="strategy-modal-actions">
                   <button className="strategy-close" onClick={() => setConfirmOpen(false)}>Cancel</button>
