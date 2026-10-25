@@ -103,6 +103,7 @@ export default function BotBuilderPage() {
     if (cfg.speed === 'normal' && tickCountRef.current < 2) return;
     tickCountRef.current = 0;
     contractRef.current = true;
+    let boughtContractId = null;
     try {
       const proposal = await requestProposal({
         amount: cfg.stake, basis: 'stake', contract_type: cfg.condition === 'under' ? 'DIGITUNDER' : cfg.condition === 'equals' ? 'DIGITMATCH' : 'DIGITOVER',
@@ -110,22 +111,44 @@ export default function BotBuilderPage() {
         barrier: String(cfg.barrier), subscribe: 1,
       });
       const buy = await buyContract(proposal.id, proposal.ask_price || proposal.price);
+      boughtContractId = buy.contract_id;
       tradesRef.current += 1;
       setTrades(tradesRef.current);
-      await subscribeContract(buy.contract_id, (contract) => {
-        if (!contract?.is_sold) return;
-        const profit = Number(contract.profit || 0);
+
+      let settled = false;
+      const handleContractUpdate = (contract) => {
+        if (!contract?.is_sold || settled) return;
+        settled = true;
+        const profit = Number(contract.profit);
         if (Number.isFinite(profit)) {
           pnlRef.current += profit;
           setPnl(pnlRef.current);
+        } else {
+          setMessage('Contract settled, but Deriv did not provide a readable profit value.');
         }
         contractRef.current = false;
         if (pnlRef.current <= -configRef.current.maxLoss) stop('Maximum session loss reached. Bot stopped.');
         else if (tradesRef.current >= configRef.current.maxTrades) stop('Maximum number of trades reached. Bot stopped.');
-      });
+      };
+
+      try {
+        await subscribeContract(boughtContractId, handleContractUpdate);
+      } catch (subscriptionError) {
+        // A successful buy is not undone by a failed status subscription.
+        // Retry tracking once and never release the one-contract lock unless
+        // a settlement update is received.
+        try {
+          await subscribeContract(boughtContractId, handleContractUpdate);
+        } catch (retryError) {
+          stop('Contract ' + boughtContractId + ' was bought, but its live status could not be tracked. No further entries will be placed. Reconnect and check the Deriv portfolio before restarting. (' + formatDerivError(retryError || subscriptionError) + ')');
+          return;
+        }
+      }
     } catch (err) {
-      contractRef.current = false;
-      stop(formatDerivError(err));
+      if (!boughtContractId) contractRef.current = false;
+      stop(boughtContractId
+        ? 'Contract ' + boughtContractId + ' may still be open. Bot stopped; verify it in your Deriv portfolio. ' + formatDerivError(err)
+        : formatDerivError(err));
     }
   };
 
