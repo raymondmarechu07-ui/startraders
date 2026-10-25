@@ -217,8 +217,8 @@ export default function SpeedbotPage() {
           {error && <div className="error-banner">{error}</div>}
 
           <div className="live-stats visible">
-            <div className="stat"><div className="v">{runs}</div><div className="l">Real contracts</div></div>
-            <div className="stat"><div className="v">{pnl >= 0 ? '+$' : '-$'}{Math.abs(pnl).toFixed(2)}</div><div className="l">Real profit/loss</div></div>
+            <div className="stat"><div className="v">{runs}</div><div className="l">Contracts placed</div></div>
+            <div className="stat"><div className="v">{pnl >= 0 ? '+$' : '-$'}{Math.abs(pnl).toFixed(2)}</div><div className="l">Session profit/loss</div></div>
             <div className="stat"><div className="v">{running ? 'RUNNING' : 'STOPPED'}</div><div className="l">Bot state</div></div>
           </div>
 
