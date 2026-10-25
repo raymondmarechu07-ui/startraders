@@ -25,6 +25,7 @@ export default function BotBuilderPage() {
   const [maxLoss, setMaxLoss] = useState('5');
   const [speed, setSpeed] = useState('normal');
   const [running, setRunning] = useState(false);
+  const [contractPending, setContractPending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [trades, setTrades] = useState(0);
   const [pnl, setPnl] = useState(0);
@@ -112,6 +113,7 @@ export default function BotBuilderPage() {
       });
       const buy = await buyContract(proposal.id, proposal.ask_price || proposal.price);
       boughtContractId = buy.contract_id;
+      setContractPending(true);
       tradesRef.current += 1;
       setTrades(tradesRef.current);
 
@@ -127,6 +129,7 @@ export default function BotBuilderPage() {
           setMessage('Contract settled, but Deriv did not provide a readable profit value.');
         }
         contractRef.current = false;
+        setContractPending(false);
         if (pnlRef.current <= -configRef.current.maxLoss) stop('Maximum session loss reached. Bot stopped.');
         else if (tradesRef.current >= configRef.current.maxTrades) stop('Maximum number of trades reached. Bot stopped.');
       };
@@ -181,6 +184,7 @@ export default function BotBuilderPage() {
 
   function begin() {
     setMessage('');
+    if (contractPending || contractRef.current) { setMessage('A previous contract may still be open or untracked. Check your Deriv portfolio before starting another bot run.'); return; }
     if (status !== 'connected' || !activeAccount) { setMessage('Connect a Deriv account first.'); return; }
     if (!market) { setMessage('Choose an available market before starting.'); return; }
     if (availableMarkets.length > 0 && !availableMarkets.some((item) => (item.underlying_symbol || item.symbol) === market)) {
@@ -250,6 +254,7 @@ export default function BotBuilderPage() {
             <div><div style={{ color: '#9ca3af', fontSize: 12 }}>SESSION P/L</div><strong style={{ color: pnl >= 0 ? '#4ade80' : '#f87171' }}>{pnl >= 0 ? '+' : ''}{pnl.toFixed(2)} {activeAccount?.currency || 'USD'}</strong></div>
             <div><div style={{ color: '#9ca3af', fontSize: 12 }}>BOT STATUS</div><strong style={{ color: running ? '#4ade80' : '#fbbf24' }}>{running ? 'RUNNING' : 'STOPPED'}</strong></div>
           </div>
+          {contractPending && <div role="alert" style={{ marginTop: 14, padding: 12, borderRadius: 8, background: '#422006', color: '#fde68a' }}>A contract is awaiting confirmed settlement or needs portfolio verification. Starting another run is blocked to avoid overlapping trades.</div>}
           {message && <div role="alert" style={{ marginTop: 14, padding: 12, borderRadius: 8, background: '#451a1a', color: '#fecaca' }}>{message}</div>}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
             <button onClick={running ? () => stop('Bot stopped. Any already-open contract will continue until settlement.') : begin} style={{ border: 0, borderRadius: 9, padding: '12px 22px', fontWeight: 800, cursor: 'pointer', color: '#111827', background: running ? '#f87171' : '#fb923c' }}>{running ? 'Stop bot' : 'Review & start bot'}</button>
