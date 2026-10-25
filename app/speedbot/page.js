@@ -31,6 +31,7 @@ export default function SpeedbotPage() {
 
   const runningRef = useRef(false);
   const activeContractRef = useRef(false);
+  const qualifyingTicksRef = useRef(0);
   const symbolRef = useRef('1HZ100V');
 
   useEffect(() => {
@@ -76,8 +77,16 @@ export default function SpeedbotPage() {
         ? digit > Number(activeStrategy.barrier)
         : digit < Number(activeStrategy.barrier);
 
-      if (!shouldTrade) return;
+      if (!shouldTrade) {
+        qualifyingTicksRef.current = 0;
+        return;
+      }
 
+      // Fast mode can enter on the first qualifying tick. Normal mode waits
+      // for two consecutive qualifying ticks to reduce impulsive entries.
+      qualifyingTicksRef.current += 1;
+      if (speed === 'normal' && qualifyingTicksRef.current < 2) return;
+      qualifyingTicksRef.current = 0;
       activeContractRef.current = true;
       try {
         const currency = activeAccount?.currency || 'USD';
@@ -115,6 +124,7 @@ export default function SpeedbotPage() {
     status,
     activeAccount,
     activeStrategy,
+    speed,
     runs,
     maxRuns,
     stake,
@@ -131,6 +141,7 @@ export default function SpeedbotPage() {
     setView('execute');
     setRuns(0);
     setPnl(0);
+    qualifyingTicksRef.current = 0;
     setError('');
   }
 
