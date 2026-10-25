@@ -2622,3 +2622,14 @@ footer {
     border-top: 1px solid #e0e4e9 !important;
   }
 }
+
+
+/* Clean embedded header and keep contract panel scrollable. */
+.dbt-manual-trader #derivatives_trader .trade { height: calc(100dvh - 119px) !important; min-height: 0 !important; }
+.dbt-manual-trader #derivatives_trader .trade__header { display: none !important; }
+.dbt-manual-trader #derivatives_trader .trade__grid { height: 100% !important; min-height: 0 !important; grid-template-columns: minmax(0, 1fr) minmax(300px, 22rem) !important; }
+.dbt-manual-trader #derivatives_trader .trade-params { height: 100% !important; max-height: 100% !important; min-height: 0 !important; overflow-x: hidden !important; overflow-y: auto !important; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #aeb7c4 #edf0f4; }
+.dbt-manual-trader #derivatives_trader .trade-params::-webkit-scrollbar { width: 8px; }
+.dbt-manual-trader #derivatives_trader .trade-params::-webkit-scrollbar-thumb { background: #aeb7c4; border-radius: 8px; }
+.dbt-manual-trader #derivatives_trader .trade-params::-webkit-scrollbar-track { background: #edf0f4; }
+@media (max-width: 700px) { .dbt-manual-trader #derivatives_trader .trade { height: auto !important; min-height: 0 !important; } .dbt-manual-trader #derivatives_trader .trade__grid { height: auto !important; } .dbt-manual-trader #derivatives_trader .trade-params { height: auto !important; max-height: none !important; overflow-y: visible !important; } }
