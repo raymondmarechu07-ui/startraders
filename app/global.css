@@ -2499,3 +2499,126 @@ footer {
   background: #078d82 !important;
   border-color: #078d82 !important;
 }
+
+
+/* StarTraders Manual Trader workspace fit: remove DTrader's reserved flyout
+   gutter in the embedded shell and use the full space like the DBTraders view. */
+.dbt-manual-trader #derivatives_trader .trade {
+  width: 100% !important;
+  max-width: none !important;
+  height: calc(100dvh - 119px) !important;
+  margin: 0 !important;
+  padding-left: 0 !important;
+  box-sizing: border-box !important;
+}
+.dbt-manual-trader #derivatives_trader .trade--flyout-open {
+  padding-left: 0 !important;
+}
+.dbt-manual-trader #derivatives_trader .trade__header {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 5.2rem !important;
+  flex: 0 0 5.2rem !important;
+  padding-right: 10px !important;
+}
+.dbt-manual-trader #derivatives_trader .trade__trade-types {
+  width: auto !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  padding-right: 10px !important;
+  gap: 8px !important;
+}
+.dbt-manual-trader #derivatives_trader .trade__grid {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 22rem) !important;
+  width: 100% !important;
+  height: calc(100% - 5.2rem) !important;
+  min-height: 0 !important;
+}
+.dbt-manual-trader #derivatives_trader .trade__chart-tooltip,
+.dbt-manual-trader #derivatives_trader .trade__chart {
+  min-width: 0 !important;
+  width: 100% !important;
+}
+.dbt-manual-trader #derivatives_trader .trade-params {
+  min-width: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  padding: 12px !important;
+  gap: 8px !important;
+  border: 0 !important;
+  border-left: 1px solid #e0e4e9 !important;
+  border-radius: 0 !important;
+  background: #f0f2f5 !important;
+  box-shadow: none !important;
+}
+.dbt-manual-trader #derivatives_trader .trade-params__options-wrapper {
+  gap: 8px !important;
+}
+.dbt-manual-trader #derivatives_trader .trade-params__option {
+  border: 0 !important;
+  border-radius: 5px !important;
+  background: #f0f2f5 !important;
+  box-shadow: none !important;
+}
+.dbt-manual-trader #derivatives_trader .st-growth-rate-control {
+  gap: 7px !important;
+}
+.dbt-manual-trader #derivatives_trader .st-growth-rate-control__quick-pick {
+  min-height: 34px !important;
+  font-size: 14px !important;
+}
+.dbt-manual-trader #derivatives_trader .accumulators-info__wrapper {
+  border: 0 !important;
+  border-radius: 4px !important;
+  padding: 0 10px !important;
+  background: #f8f9fb !important;
+}
+.dbt-manual-trader #derivatives_trader .accumulators-info__row {
+  min-height: 34px !important;
+  padding: 6px 0 !important;
+}
+.dbt-manual-trader #derivatives_trader .purchase-button__wrapper,
+.dbt-manual-trader #derivatives_trader .purchase-button {
+  margin-top: 2px !important;
+}
+.dbt-manual-trader #derivatives_trader .purchase-button__wrapper .quill-button,
+.dbt-manual-trader #derivatives_trader .purchase-button .quill-button {
+  min-height: 56px !important;
+  width: 100% !important;
+  border-radius: 4px !important;
+  font-weight: 800 !important;
+}
+@media (max-width: 900px) {
+  .dbt-manual-trader #derivatives_trader .trade {
+    width: 100% !important;
+    height: calc(100dvh - 108px) !important;
+  }
+  .dbt-manual-trader #derivatives_trader .trade__grid {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 22rem) !important;
+  }
+}
+@media (max-width: 700px) {
+  .dbt-manual-trader #derivatives_trader .trade {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  .dbt-manual-trader #derivatives_trader .trade__header {
+    height: auto !important;
+    min-height: 4.8rem !important;
+    flex-basis: auto !important;
+  }
+  .dbt-manual-trader #derivatives_trader .trade__grid {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+  }
+  .dbt-manual-trader #derivatives_trader .trade__chart-tooltip {
+    min-height: 45vh !important;
+  }
+  .dbt-manual-trader #derivatives_trader .trade-params {
+    width: 100% !important;
+    max-height: none !important;
+    border-left: 0 !important;
+    border-top: 1px solid #e0e4e9 !important;
+  }
+}
