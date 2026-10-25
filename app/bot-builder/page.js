@@ -48,17 +48,31 @@ export default function BotBuilderPage() {
   }, []);
 
   useEffect(() => {
+    if (status !== 'connected') return undefined;
     let cancelled = false;
     getActiveSymbols().then((items) => {
       if (!cancelled) {
         setSymbols(items);
-        setMarket(findDerivSymbol(items, 'Volatility 100 (1s)', '1HZ100V'));
+        if (items.length > 0) {
+          setMarket(findDerivSymbol(items, 'Volatility 100 (1s)', items[0]?.underlying_symbol || items[0]?.symbol || '1HZ100V'));
+        }
       }
     }).catch((err) => {
       if (!cancelled) setMessage(formatDerivError(err));
     });
     return () => { cancelled = true; };
-  }, [getActiveSymbols]);
+  }, [getActiveSymbols, status]);
+
+  // Changing accounts while a strategy is running can silently redirect
+  // subsequent orders. Stop the strategy whenever the selected account changes.
+  const accountIdRef = useRef(activeAccount?.account_id || null);
+  useEffect(() => {
+    const nextAccountId = activeAccount?.account_id || null;
+    if (accountIdRef.current !== nextAccountId && runningRef.current) {
+      stop('Selected account changed. Bot stopped; review the account before restarting.');
+    }
+    accountIdRef.current = nextAccountId;
+  }, [activeAccount?.account_id, stop]);
 
   onTickRef.current = async (tick) => {
     setQuote(Number(tick.quote));
@@ -170,7 +184,7 @@ export default function BotBuilderPage() {
           <section style={panel}>
             <h2 style={{ marginTop: 0, fontSize: 19 }}>1. Choose your market</h2>
             <label style={label}>Market</label>
-            <select style={field} value={market} onChange={(e) => chooseMarket(e.target.value)}>
+            <select style={field} disabled={running} value={market} onChange={(e) => chooseMarket(e.target.value)}>
               {availableMarkets.length > 0
                 ? availableMarkets.map((item) => <option key={item.underlying_symbol || item.symbol} value={item.underlying_symbol || item.symbol}>{item.display_name || item.underlying_symbol_name || item.underlying_symbol || item.symbol}</option>)
                 : MARKETS.map((item) => <option key={item.fallback} value={item.fallback}>{item.label}</option>)}
@@ -178,21 +192,21 @@ export default function BotBuilderPage() {
             <div style={{ color: '#9ca3af', fontSize: 13, marginTop: 8 }}>Live quote: <strong style={{ color: '#f8fafc' }}>{quote === null ? 'Waiting for market tick…' : quote}</strong></div>
             <h2 style={{ fontSize: 19, marginTop: 24 }}>2. Build your rule</h2>
             <label style={label}>When the last digit is…</label>
-            <select style={field} value={condition} onChange={(e) => setCondition(e.target.value)}>
+            <select style={field} disabled={running} value={condition} onChange={(e) => setCondition(e.target.value)}>
               <option value="over">Greater than</option><option value="under">Less than</option><option value="equals">Equal to</option>
             </select>
             <label style={{ ...label, marginTop: 14 }}>Digit (0–9)</label>
-            <select style={field} value={barrier} onChange={(e) => setBarrier(e.target.value)}>{Array.from({ length: 10 }, (_, n) => <option key={n} value={n}>{n}</option>)}</select>
+            <select style={field} disabled={running} value={barrier} onChange={(e) => setBarrier(e.target.value)}>{Array.from({ length: 10 }, (_, n) => <option key={n} value={n}>{n}</option>)}</select>
             <div style={{ marginTop: 14, borderRadius: 8, background: '#0b1220', padding: 12, color: '#cbd5e1', fontSize: 14 }}>IF last digit is <strong style={{ color: '#fb923c' }}>{condition === 'over' ? 'greater than' : condition === 'under' ? 'less than' : 'equal to'} {barrier}</strong>, THEN place a 1-tick {condition === 'under' ? 'Digit Under' : condition === 'equals' ? 'Digit Match' : 'Digit Over'} contract.</div>
           </section>
 
           <section style={panel}>
             <h2 style={{ marginTop: 0, fontSize: 19 }}>3. Set risk controls</h2>
-            <label style={label}>Stake per trade ({activeAccount?.currency || 'USD'})</label><input style={field} type="number" min="0.35" step="0.1" value={stake} onChange={(e) => setStake(e.target.value)} />
-            <label style={{ ...label, marginTop: 14 }}>Maximum trades per run</label><input style={field} type="number" min="1" max="100" step="1" value={maxTrades} onChange={(e) => setMaxTrades(e.target.value)} />
-            <label style={{ ...label, marginTop: 14 }}>Stop opening trades at session loss ({activeAccount?.currency || 'USD'})</label><input style={field} type="number" min="0.01" step="0.1" value={maxLoss} onChange={(e) => setMaxLoss(e.target.value)} />
+            <label style={label}>Stake per trade ({activeAccount?.currency || 'USD'})</label><input style={field} disabled={running} type="number" min="0.35" step="0.1" value={stake} onChange={(e) => setStake(e.target.value)} />
+            <label style={{ ...label, marginTop: 14 }}>Maximum trades per run</label><input style={field} disabled={running} type="number" min="1" max="100" step="1" value={maxTrades} onChange={(e) => setMaxTrades(e.target.value)} />
+            <label style={{ ...label, marginTop: 14 }}>Stop opening trades at session loss ({activeAccount?.currency || 'USD'})</label><input style={field} disabled={running} type="number" min="0.01" step="0.1" value={maxLoss} onChange={(e) => setMaxLoss(e.target.value)} />
             <label style={{ ...label, marginTop: 14 }}>Entry mode</label>
-            <select style={field} value={speed} onChange={(e) => setSpeed(e.target.value)}><option value="normal">Normal — wait for 2 qualifying ticks</option><option value="fast">Fast — enter on first qualifying tick</option></select>
+            <select style={field} disabled={running} value={speed} onChange={(e) => setSpeed(e.target.value)}><option value="normal">Normal — wait for 2 qualifying ticks</option><option value="fast">Fast — enter on first qualifying tick</option></select>
             <div style={{ color: '#9ca3af', fontSize: 12, marginTop: 10 }}>Loss control is client-side and stops new entries after a settled contract reaches the limit. It cannot prevent slippage, connection delays, or losses on an already-open contract.</div>
           </section>
         </div>
