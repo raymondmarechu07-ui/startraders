@@ -18,8 +18,7 @@ const label = { display: 'block', color: '#cbd5e1', fontSize: 13, fontWeight: 60
 export default function BotBuilderPage() {
   const { status, activeAccount, balance, getActiveSymbols, subscribeTicks, unsubscribeTicks, requestProposal, buyContract, subscribeContract } = useDeriv();
   const [market, setMarket] = useState('1HZ100V');
-  const [marketLabel, setMarketLabel] = useState(MARKETS[0].label);
-  const [condition, setCondition] = useState('over');
+    const [condition, setCondition] = useState('over');
   const [barrier, setBarrier] = useState('1');
   const [stake, setStake] = useState('0.50');
   const [maxTrades, setMaxTrades] = useState('10');
@@ -51,7 +50,10 @@ export default function BotBuilderPage() {
   useEffect(() => {
     let cancelled = false;
     getActiveSymbols().then((items) => {
-      if (!cancelled) setSymbols(items);
+      if (!cancelled) {
+        setSymbols(items);
+        setMarket(findDerivSymbol(items, 'Volatility 100 (1s)', '1HZ100V'));
+      }
     }).catch((err) => {
       if (!cancelled) setMessage(formatDerivError(err));
     });
@@ -112,10 +114,10 @@ export default function BotBuilderPage() {
     return () => unsubscribeTicks();
   }, [status, market, subscribeTicks, unsubscribeTicks]);
 
+  const availableMarkets = symbols.filter((item) => /volatility/i.test(item.display_name || item.underlying_symbol_name || '') && (item.underlying_symbol || item.symbol));
+
   function chooseMarket(value) {
-    const selected = MARKETS.find((item) => item.fallback === value);
     setMarket(value);
-    setMarketLabel(selected?.label || symbols.find((item) => (item.underlying_symbol || item.symbol) === value)?.display_name || value);
   }
 
   function begin() {
@@ -150,8 +152,9 @@ export default function BotBuilderPage() {
             <h2 style={{ marginTop: 0, fontSize: 19 }}>1. Choose your market</h2>
             <label style={label}>Market</label>
             <select style={field} value={market} onChange={(e) => chooseMarket(e.target.value)}>
-              {MARKETS.map((item) => <option key={item.fallback} value={item.fallback}>{item.label}</option>)}
-              {symbols.filter((item) => !MARKETS.some((known) => known.fallback === (item.underlying_symbol || item.symbol))).slice(0, 0).map((item) => <option key={item.underlying_symbol || item.symbol} value={item.underlying_symbol || item.symbol}>{item.display_name}</option>)}
+              {availableMarkets.length > 0
+                ? availableMarkets.map((item) => <option key={item.underlying_symbol || item.symbol} value={item.underlying_symbol || item.symbol}>{item.display_name || item.underlying_symbol_name || item.underlying_symbol || item.symbol}</option>)
+                : MARKETS.map((item) => <option key={item.fallback} value={item.fallback}>{item.label}</option>)}
             </select>
             <div style={{ color: '#9ca3af', fontSize: 13, marginTop: 8 }}>Live quote: <strong style={{ color: '#f8fafc' }}>{quote === null ? 'Waiting for market tick…' : quote}</strong></div>
             <h2 style={{ fontSize: 19, marginTop: 24 }}>2. Build your rule</h2>
