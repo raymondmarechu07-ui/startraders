@@ -6,8 +6,9 @@ const nextConfig = {
     const engine = 'https://trading-bot-template.onrender.com';
     return {
       beforeFiles: [
-        { source: '/bot-builder/engine', destination: `${engine}/` },
-        { source: '/bot-builder/engine/:path*', destination: `${engine}/:path*` },
+        // Serve the official DBot app as the actual Bot Builder page, not as a separate link.
+        { source: '/bot-builder', destination: `${engine}/` },
+        { source: '/bot-builder/:path*', destination: `${engine}/:path*` },
       ],
     };
   },
