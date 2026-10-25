@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useDeriv } from '../../context/DerivProvider';
 
 const BLOCKLY_VERSION = '11.2.2';
 const scripts = [
@@ -62,6 +63,10 @@ export default function BotBuilderPage() {
   const [blockCount, setBlockCount] = useState(0);
   const [strategyName, setStrategyName] = useState('My Deriv Strategy');
   const [isRunningDemo, setIsRunningDemo] = useState(false);
+  const [activeContract, setActiveContract] = useState(null);
+  const [tradeUpdates, setTradeUpdates] = useState([]);
+  const { accounts, activeAccount, activeAccountId, isLoggedIn, status: connectionStatus, login, switchAccount, requestProposal, buyContract, subscribeContract, sellContract } = useDeriv();
+  const isDemoAccount = Boolean(activeAccount?.account_id && /^VRTC/i.test(activeAccount.account_id));
 
   const updateCount = useCallback(() => {
     const ws = workspaceRef.current;
@@ -234,7 +239,19 @@ export default function BotBuilderPage() {
     }
   };
 
-  const runDemoCheck = () => {
+  const stopActiveContract = async () => {
+    if (!activeContract || activeContract.is_sold) return;
+    if (!window.confirm('Ask Deriv to sell this open demo contract now? Deriv may reject the sale if it is not sellable.')) return;
+    try {
+      setNotice(`Requesting a sell for demo contract #${activeContract.contract_id}…`);
+      await sellContract(activeContract.contract_id);
+      setNotice('Sell request sent. Waiting for Deriv to confirm the final contract status.');
+    } catch (error) {
+      setNotice(error?.message || 'Deriv could not sell this contract. It may not be sellable at this time.');
+    }
+  };
+
+  const runDemoCheck = async () => {
     const ws = workspaceRef.current;
     if (!ws) return;
     const blocks = ws.getAllBlocks(false);
@@ -245,19 +262,88 @@ export default function BotBuilderPage() {
       return;
     }
     if (!trade) {
-      setNotice('Add “Trade settings” under the start block before checking this sample strategy.');
+      setNotice('Add “Trade settings” under the start block before running this strategy.');
+      return;
+    }
+    if (!isLoggedIn || !activeAccount) {
+      setNotice('Connect a Deriv account first. This runner is restricted to demo accounts.');
+      return;
+    }
+    if (!isDemoAccount) {
+      setNotice('Safety block: automated execution is limited to Deriv virtual (VRTC) accounts. Switch to a demo account first; no order was sent.');
+      return;
+    }
+    if (connectionStatus !== 'connected') {
+      setNotice('Deriv connection is not ready yet. Wait for the account connection to show Connected, then try again.');
+      return;
+    }
+    if (activeContract && !activeContract.is_sold) {
+      setNotice('A contract is already being monitored. Wait for it to settle before starting another.');
       return;
     }
     const market = trade.getFieldValue('SYMBOL');
     const direction = trade.getFieldValue('CONTRACT');
     const stake = Number(trade.getFieldValue('STAKE'));
-    if (!Number.isFinite(stake) || stake < 0.35) {
-      setNotice('Stake must be at least 0.35 demo units.');
+    if (!Number.isFinite(stake) || stake < 0.35 || stake > 10) {
+      setNotice('Demo stake must be between 0.35 and 10 account currency units.');
       return;
     }
     setIsRunningDemo(true);
-    setNotice(`Demo check passed — ${direction === 'CALL' ? 'Rise' : 'Fall'} sample on ${market}, stake ${stake}. No order was sent and no money was risked.`);
-    window.setTimeout(() => setIsRunningDemo(false), 500);
+    setNotice('Requesting a demo-only price proposal…');
+    try {
+      const proposal = await requestProposal({
+        amount: stake,
+        basis: 'stake',
+        contract_type: direction,
+        currency: activeAccount.currency || 'USD',
+        duration: 1,
+        duration_unit: 't',
+        symbol: market,
+      });
+      if (!proposal?.id || !Number.isFinite(Number(proposal.ask_price))) {
+        throw new Error('Deriv returned an incomplete proposal; no order was sent.');
+      }
+      setNotice('Proposal received. Sending one demo order…');
+      const buy = await buyContract(proposal.id, Number(proposal.ask_price));
+      const initial = {
+        contract_id: String(buy.contract_id),
+        buy_price: Number(buy.buy_price ?? proposal.ask_price),
+        payout: Number(buy.payout ?? proposal.payout ?? 0),
+        profit: Number(buy.profit ?? 0),
+        status: 'open',
+        is_sold: false,
+        symbol: market,
+        direction,
+      };
+      setActiveContract(initial);
+      setTradeUpdates((items) => [{ ...initial, time: new Date().toISOString() }, ...items].slice(0, 10));
+      setNotice(`Demo order accepted. Contract #${buy.contract_id} is being monitored; the result will update when Deriv settles it.`);
+      await subscribeContract(buy.contract_id, (contract) => {
+        const update = {
+          contract_id: String(contract.contract_id || buy.contract_id),
+          buy_price: Number(contract.buy_price ?? initial.buy_price),
+          payout: Number(contract.payout ?? initial.payout),
+          profit: Number(contract.profit ?? 0),
+          status: contract.status || (contract.is_sold ? 'sold' : 'open'),
+          is_sold: Boolean(contract.is_sold),
+          symbol: market,
+          direction,
+        };
+        setActiveContract(update);
+        setTradeUpdates((items) => {
+          const exists = items.some((item) => item.contract_id === update.contract_id);
+          const next = exists ? items.map((item) => item.contract_id === update.contract_id ? { ...item, ...update, time: new Date().toISOString() } : item) : [{ ...update, time: new Date().toISOString() }, ...items];
+          return next.slice(0, 10);
+        });
+        if (update.is_sold) {
+          setNotice(`Demo contract settled: ${update.profit >= 0 ? 'profit' : 'loss'} ${update.profit.toFixed(2)} ${activeAccount.currency || ''}. Start another trade manually when ready.`);
+        }
+      });
+    } catch (error) {
+      setNotice(error?.message || 'Demo execution failed. Check the Deriv connection and try again.');
+    } finally {
+      setIsRunningDemo(false);
+    }
   };
 
   const clearWorkspace = () => {
@@ -279,10 +365,11 @@ export default function BotBuilderPage() {
           <p style={palette.subtitle}>Build a strategy with drag-and-drop blocks — right inside StarTraders.</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <a href="/bot-builder/engine" style={{ ...palette.primary, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Open full Deriv Bot engine</a>
           <button style={palette.button} onClick={clearWorkspace}>Reset workspace</button>
           <button style={palette.button} onClick={() => fileInput.current?.click()}>Import XML</button>
           <button style={palette.button} onClick={saveXml}>Export XML</button>
-          <button style={palette.primary} onClick={runDemoCheck} disabled={editorStatus !== 'ready' || isRunningDemo}>{isRunningDemo ? 'Checking…' : 'Check demo strategy'}</button>
+          <button style={palette.primary} onClick={runDemoCheck} disabled={editorStatus !== 'ready' || isRunningDemo}>{isRunningDemo ? 'Submitting…' : 'Run one demo trade'}</button>
           <input ref={fileInput} type="file" accept=".xml,text/xml,application/xml" onChange={loadXml} style={{ display: 'none' }} />
         </div>
       </header>
@@ -294,7 +381,9 @@ export default function BotBuilderPage() {
         </div>
         <label style={{ color: '#91a0bc', fontSize: 12 }}>Strategy name <input value={strategyName} onChange={(e) => setStrategyName(e.target.value)} style={{ marginLeft: 8, background: '#111a2c', border: '1px solid #34425e', color: '#e8edf7', borderRadius: 7, padding: '7px 9px', width: 210 }} /></label>
         <span style={{ color: '#91a0bc', fontSize: 12 }}>{blockCount} blocks in workspace</span>
-        <span style={{ marginLeft: 'auto', color: '#fbbf24', fontSize: 12, fontWeight: 700 }}>DEMO CHECK ONLY · Live trading disabled</span>
+        <span style={{ color: isLoggedIn && isDemoAccount && connectionStatus === 'connected' ? '#55dfb1' : '#fbbf24', fontSize: 12, fontWeight: 700 }}>{isLoggedIn ? (isDemoAccount ? `DEMO ACCOUNT · ${connectionStatus.toUpperCase()}` : 'LIVE ACCOUNT · AUTOMATION BLOCKED') : 'DERIV NOT CONNECTED'}</span>
+        {isLoggedIn && <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#aab8d0' }}>Account <select value={activeAccountId || ''} onChange={(event) => switchAccount(event.target.value)} style={{ background: '#111b30', color: '#e7eefb', border: '1px solid #34425e', borderRadius: 7, padding: '7px 9px', maxWidth: 230 }}>{accounts.map((account) => <option key={account.account_id} value={account.account_id}>{account.account_id}{account.currency ? ` · ${account.currency}` : ''}{/^VRTC/i.test(account.account_id) ? ' · Demo' : ' · Real'}</option>)}</select></label>}
+        {!isLoggedIn && <button style={palette.button} onClick={login}>Connect Deriv</button>}
       </section>
 
       <section style={{ padding: '0 24px 16px' }}>
@@ -303,6 +392,15 @@ export default function BotBuilderPage() {
         </div>
         {editorStatus === 'error' && <div role="alert" style={{ marginTop: 12, border: '1px solid #7f1d35', background: '#2a1220', color: '#fecdd3', borderRadius: 10, padding: 12, fontSize: 13 }}>{notice}</div>}
         {editorStatus !== 'error' && <div role="status" style={{ marginTop: 12, border: '1px solid #26314a', background: '#111a2c', color: '#cbd5e1', borderRadius: 10, padding: 12, fontSize: 13 }}>{notice}</div>}
+      </section>
+
+      <section style={{ padding: '0 24px 16px' }}>
+        <article style={{ padding: 16, border: '1px solid #26314a', background: '#111a2c', borderRadius: 12 }}>
+          <h2 style={{ margin: '0 0 10px', fontSize: 14 }}>Execution monitor</h2>
+          <p style={palette.muted}>{activeContract ? `Contract #${activeContract.contract_id} · ${activeContract.symbol} · ${activeContract.direction === 'CALL' ? 'Rise' : 'Fall'} · ${activeContract.is_sold ? 'Settled' : 'Open'} · P/L ${Number(activeContract.profit || 0).toFixed(2)} ${activeAccount?.currency || ''}` : 'No contract running. Execution is demo-only and submits at most one contract per click.'}</p>
+          {activeContract && !activeContract.is_sold && <button style={{ ...palette.button, borderColor: '#a44b5a', color: '#ffb4bd', marginTop: 8 }} onClick={stopActiveContract}>Request sell / stop contract</button>}
+          {tradeUpdates.length > 0 && <div style={{ overflowX: 'auto', marginTop: 10 }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}><thead><tr>{['Contract','Market','Direction','Status','Profit'].map((x) => <th key={x} style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #34425e', color: '#91a0bc' }}>{x}</th>)}</tr></thead><tbody>{tradeUpdates.map((item) => <tr key={item.contract_id}><td style={{ padding: 8, borderBottom: '1px solid #26314a' }}>#{item.contract_id}</td><td style={{ padding: 8, borderBottom: '1px solid #26314a' }}>{item.symbol}</td><td style={{ padding: 8, borderBottom: '1px solid #26314a' }}>{item.direction === 'CALL' ? 'Rise' : 'Fall'}</td><td style={{ padding: 8, borderBottom: '1px solid #26314a' }}>{item.status}</td><td style={{ padding: 8, borderBottom: '1px solid #26314a' }}>{Number(item.profit || 0).toFixed(2)}</td></tr>)}</tbody></table></div>}
+        </article>
       </section>
 
       <section style={{ padding: '0 24px 28px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
@@ -316,7 +414,7 @@ export default function BotBuilderPage() {
         </article>
         <article style={{ padding: 16, border: '1px solid #26314a', background: '#111a2c', borderRadius: 12 }}>
           <h2 style={{ margin: '0 0 7px', fontSize: 14 }}>03 · Safety first</h2>
-          <p style={palette.muted}>The demo check validates the sample settings only. This first integrated editor does not connect the blocks to Deriv's trading engine and will not place trades.</p>
+          <p style={palette.muted}>This initial runner can submit one Rise/Fall tick contract from the Trade settings block, but only on a VRTC virtual account. It does not yet interpret arbitrary Blockly logic or run repeating strategies. Verify stake and market before starting.</p>
         </article>
       </section>
       <style jsx global>{`
