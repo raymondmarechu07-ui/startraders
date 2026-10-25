@@ -2,6 +2,16 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  async rewrites() {
+    const engine = 'https://trading-bot-template.onrender.com';
+    return {
+      beforeFiles: [
+        { source: '/bot-builder/engine', destination: `${engine}/` },
+        { source: '/bot-builder/engine/:path*', destination: `${engine}/:path*` },
+      ],
+    };
+  },
+
   async headers() {
     const csp = [
       "default-src 'self'",
