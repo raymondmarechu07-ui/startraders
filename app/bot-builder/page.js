@@ -53,8 +53,16 @@ export default function BotBuilderPage() {
     getActiveSymbols().then((items) => {
       if (!cancelled) {
         setSymbols(items);
-        if (items.length > 0) {
-          setMarket(findDerivSymbol(items, 'Volatility 100 (1s)', items[0]?.underlying_symbol || items[0]?.symbol || '1HZ100V'));
+        const volatilityMarkets = items.filter((item) =>
+          /volatility/i.test(item.display_name || item.underlying_symbol_name || '') &&
+          (item.underlying_symbol || item.symbol)
+        );
+        if (volatilityMarkets.length > 0) {
+          setMarket(findDerivSymbol(
+            volatilityMarkets,
+            'Volatility 100 (1s)',
+            volatilityMarkets[0].underlying_symbol || volatilityMarkets[0].symbol
+          ));
         }
       }
     }).catch((err) => {
