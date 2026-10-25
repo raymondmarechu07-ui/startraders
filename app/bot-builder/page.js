@@ -365,6 +365,7 @@ export default function BotBuilderPage() {
           <p style={palette.subtitle}>Build a strategy with drag-and-drop blocks — right inside StarTraders.</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <a href="/bot-builder/engine" style={{ ...palette.primary, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Open full Deriv Bot engine</a>
           <button style={palette.button} onClick={clearWorkspace}>Reset workspace</button>
           <button style={palette.button} onClick={() => fileInput.current?.click()}>Import XML</button>
           <button style={palette.button} onClick={saveXml}>Export XML</button>
