@@ -136,13 +136,24 @@ export default function SpeedbotPage() {
       setError('Connect a Deriv account before starting the bot.');
       return;
     }
+    const numericStake = Number(stake);
+    const numericMaxRuns = Number(maxRuns);
+    if (!Number.isFinite(numericStake) || numericStake < 0.35) {
+      setError('Stake must be a valid amount of at least 0.35.');
+      return;
+    }
+    if (!Number.isInteger(numericMaxRuns) || numericMaxRuns < 1 || numericMaxRuns > 100) {
+      setError('Max runs must be a whole number from 1 to 100.');
+      return;
+    }
     setConfirmOpen(true);
   }
 
   function confirmStart() {
     setConfirmOpen(false);
     setError('');
-    activeContractRef.current = false;
+    // Do not clear an in-flight contract lock when restarting: an existing
+    // contract may still be open after the user stopped the tick loop.
     setRunning(true);
     runningRef.current = true;
   }
@@ -150,7 +161,8 @@ export default function SpeedbotPage() {
   function stopRun() {
     setRunning(false);
     runningRef.current = false;
-    activeContractRef.current = false;
+    // Keep the lock until the open contract settles. Otherwise stopping and
+    // immediately restarting could place overlapping contracts.
   }
 
   return (
