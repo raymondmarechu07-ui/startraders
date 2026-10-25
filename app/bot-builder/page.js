@@ -18,7 +18,7 @@ const label = { display: 'block', color: '#cbd5e1', fontSize: 13, fontWeight: 60
 export default function BotBuilderPage() {
   const { status, activeAccount, balance, getActiveSymbols, subscribeTicks, unsubscribeTicks, requestProposal, buyContract, subscribeContract } = useDeriv();
   const [market, setMarket] = useState('1HZ100V');
-    const [condition, setCondition] = useState('over');
+  const [condition, setCondition] = useState('over');
   const [barrier, setBarrier] = useState('1');
   const [stake, setStake] = useState('0.50');
   const [maxTrades, setMaxTrades] = useState('10');
@@ -109,10 +109,24 @@ export default function BotBuilderPage() {
 
   useEffect(() => {
     if (status !== 'connected') return undefined;
+    let cancelled = false;
     subscribeTicks(market, (tick) => onTickRef.current?.(tick))
-      .catch((err) => setMessage(formatDerivError(err)));
-    return () => unsubscribeTicks();
-  }, [status, market, subscribeTicks, unsubscribeTicks]);
+      .catch((err) => {
+        if (!cancelled) stop(formatDerivError(err));
+      });
+    return () => {
+      cancelled = true;
+      unsubscribeTicks();
+    };
+  }, [status, market, subscribeTicks, unsubscribeTicks, stop]);
+
+  // A lost authenticated session must never leave the UI claiming that
+  // automated entries are still running.
+  useEffect(() => {
+    if (runningRef.current && status !== 'connected') {
+      stop('Deriv connection was lost. Bot stopped opening new trades.');
+    }
+  }, [status, stop]);
 
   const availableMarkets = symbols.filter((item) => /volatility/i.test(item.display_name || item.underlying_symbol_name || '') && (item.underlying_symbol || item.symbol));
 
@@ -123,6 +137,11 @@ export default function BotBuilderPage() {
   function begin() {
     setMessage('');
     if (status !== 'connected' || !activeAccount) { setMessage('Connect a Deriv account first.'); return; }
+    if (!market) { setMessage('Choose an available market before starting.'); return; }
+    if (availableMarkets.length > 0 && !availableMarkets.some((item) => (item.underlying_symbol || item.symbol) === market)) {
+      setMessage('That market is not currently listed as active by Deriv. Choose an available market and try again.');
+      return;
+    }
     if (!Number.isFinite(Number(stake)) || Number(stake) < 0.35) { setMessage('Stake must be at least 0.35.'); return; }
     if (!Number.isInteger(Number(maxTrades)) || Number(maxTrades) < 1 || Number(maxTrades) > 100) { setMessage('Maximum trades must be a whole number from 1 to 100.'); return; }
     if (!Number.isFinite(Number(maxLoss)) || Number(maxLoss) <= 0) { setMessage('Maximum session loss must be greater than zero.'); return; }
