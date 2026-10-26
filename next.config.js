@@ -17,7 +17,7 @@ const nextConfig = {
     const csp = [
       "default-src 'self'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net",
       "img-src 'self' data: blob:",
       "worker-src 'self' blob:",
       "font-src 'self' data: https://fonts.gstatic.com",
