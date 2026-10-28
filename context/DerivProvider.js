@@ -730,6 +730,25 @@ export function DerivProvider({ children }) {
     return response?.portfolio || null;
   }, [sendRequest]);
 
+  /*
+   * Fetch actual historical candles from Deriv (not generated chart data).
+   */
+  const getCandles = useCallback(async ({
+    symbol,
+    granularity = 60,
+    count = 60,
+  } = {}) => {
+    if (!symbol) throw new Error('A Deriv symbol is required for candle history.');
+    const response = await sendRequest({
+      ticks_history: symbol,
+      style: 'candles',
+      granularity,
+      count,
+      end: 'latest',
+    });
+    return Array.isArray(response?.candles) ? response.candles : [];
+  }, [sendRequest]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -845,6 +864,7 @@ export function DerivProvider({ children }) {
     sellContract,
     getProfitHistory,
     getPortfolio,
+    getCandles,
   };
 
   return (
