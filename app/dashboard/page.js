@@ -18,7 +18,7 @@ const QUICK_ACTIONS = [
   { title: 'Manual Trader', description: 'Open the live StarTraders trading workspace.', icon: 'chart', color: 'green', href: '/manual-trader' },
   { title: 'Upload Bot', description: 'Import an XML bot from your computer.', icon: 'folder', color: 'orange', action: 'upload' },
   { title: 'Free Bots', description: 'Browse ready-made trading strategies.', icon: 'bot', color: 'green', href: '/free-bots' },
-  { title: 'Bot Editor', description: 'Build a custom bot with the visual editor.', icon: 'puzzle', color: 'purple', href: '/bot-builder' },
+  { title: 'DBot Engine', description: 'Open the full Deriv DBot visual strategy builder.', icon: 'puzzle', color: 'purple', href: '/bot-builder/engine' },
   { title: 'Quick Strategy', description: 'Start fast with a pre-built strategy template.', icon: 'bolt', color: 'yellow', action: 'strategy' },
 ];
 
@@ -52,7 +52,6 @@ export default function DashboardPage() {
   const [marketFeedStatus, setMarketFeedStatus] = useState('Waiting for Deriv connection');
   const [candles, setCandles] = useState([]);
   const [candleStatus, setCandleStatus] = useState('Waiting for Deriv connection');
-  const [running, setRunning] = useState(false);
   const [riskOpen, setRiskOpen] = useState(false);
   const [adviceIndex, setAdviceIndex] = useState(0);
   const [execSpeed, setExecSpeed] = useState('normal');
@@ -166,9 +165,24 @@ export default function DashboardPage() {
     };
   }, [status, getProfitHistory, getPortfolio]);
 
+  const openDbotEngine = () => {
+    // The main StarTraders OAuth session and the DBot build use the same
+    // registered Deriv client ID. Require an authenticated session before
+    // opening the full strategy engine; never fake a running state here.
+    if (status !== 'connected' || !activeAccount) {
+      window.location.assign('/api/auth/login');
+      return;
+    }
+    window.location.assign('/bot-builder/engine');
+  };
+
   const handleQuickAction = (action) => {
-    if (action === 'upload') alert('Upload Bot will be connected to the bot upload system when that feature is enabled.');
-    if (action === 'strategy') alert('Quick Strategy will be connected to the strategy templates when that feature is enabled.');
+    if (action === 'upload') {
+      window.location.assign('/bot-builder/engine');
+    }
+    if (action === 'strategy') {
+      window.location.assign('/bot-builder/engine');
+    }
   };
 
   return (
@@ -272,9 +286,9 @@ export default function DashboardPage() {
       <button type="button" className={riskOpen ? 'floating-risk-button open' : 'floating-risk-button'} onClick={() => { setRiskOpen((v) => !v); if (!riskOpen) setTimeout(() => document.getElementById('risk-disclaimer')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50); }} aria-expanded={riskOpen}><span className="floating-risk-symbol">!</span><span>Risk Disclaimer</span></button>
 
       <div className="bottom-trading-bar">
-        <button type="button" className="bottom-run-button" onClick={() => setRunning((v) => !v)}><span>{running ? '■' : '▶'}</span><strong>{running ? 'STOP' : 'RUN'}</strong></button>
+        <button type="button" className="bottom-run-button" onClick={openDbotEngine} title="Open the full DBot strategy engine"><span>▶</span><strong>OPEN DBOT</strong></button>
         <div className="exec-speed"><span>Execution Speed</span><div className="speed-control"><select value={execSpeed} onChange={(e) => setExecSpeed(e.target.value)}><option value="normal">NORMAL SPEED</option><option value="fast">FAST</option><option value="turbo">TURBO</option></select><span className="speed-dot"/></div></div>
-        <span className="workspace-label">StarTraders trading workspace</span>
+        <span className="workspace-label">{status === 'connected' && activeAccount ? `Deriv ${accountType} · ${accountId} · DBot ready` : 'Connect Deriv to launch DBot'}</span>
         <span className="live-clock">{clock}</span>
       </div>
     </div>
