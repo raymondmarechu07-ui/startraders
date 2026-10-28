@@ -160,8 +160,8 @@ export default function DashboardPage() {
             <div className="market-ticker-item" key={`${market.name}-${index}`}>
               <span className="ticker-live-dot" />
               <span className="ticker-name">{market.name}</span>
-              <strong className="ticker-price">{market.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-              <span className={market.change >= 0 ? 'ticker-change positive' : 'ticker-change negative'}>{market.change >= 0 ? '+' : ''}{market.change.toFixed(2)}%</span>
+              <strong className="ticker-price">{market.price === null ? '—' : market.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</strong>
+              <span className="ticker-change">{market.price === null ? 'Awaiting tick' : 'Deriv tick'}</span>
             </div>
           ))}
         </div>
@@ -177,7 +177,7 @@ export default function DashboardPage() {
             <div className="eyebrow orange-accent">STARTRADERS • {accountType.toUpperCase()} ACCOUNT</div>
             <h1><span className="hello-accent">Hello,</span> {accountId}<span className="hello-wave">👋</span></h1>
             <p className="hero-quote" key={adviceIndex}>“{TRADING_ADVICE[adviceIndex]}”</p>
-            <div className="hero-status"><span className="status-dot"/> Markets live <span className="status-separator"/> Trading workspace ready</div>
+            <div className="hero-status"><span className="status-dot"/> {status === 'connected' ? 'Deriv connected' : 'Deriv not connected'} <span className="status-separator"/> {marketFeedStatus}</div>
           </div>
         </section>
 
@@ -227,16 +227,16 @@ export default function DashboardPage() {
 
         <section className="market-overview">
           <div className="section-heading-row">
-            <div><div className="section-eyebrow orange-accent">MARKET OVERVIEW</div><h2>Deriv Markets</h2><p className="section-subtitle">Live synthetic market watchlist</p></div>
-            <div className="market-live"><span/> MARKETS LIVE</div>
+            <div><div className="section-eyebrow orange-accent">MARKET OVERVIEW</div><h2>Deriv Markets</h2><p className="section-subtitle">Prices are shown only after a real Deriv tick arrives.</p></div>
+            <div className="market-live"><span/> {status === 'connected' ? 'DERIV CONNECTED' : 'NOT CONNECTED'}</div>
           </div>
           <div className="market-layout">
             <div className="market-list">
-              {markets.map((market) => <button type="button" key={market.name} className={selectedMarket === market.name ? 'market-row selected' : 'market-row'} onClick={() => setSelectedMarket(market.name)}><div className="market-row-name"><strong>{market.name}</strong><span>Synthetic Index</span></div><div className="market-number"><strong>{market.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong><span className={market.change >= 0 ? 'positive' : 'negative'}>{market.change >= 0 ? '+' : ''}{market.change.toFixed(2)}%</span></div></button>)}
+              {markets.map((market) => <button type="button" key={market.name} className={selectedMarket === market.name ? 'market-row selected' : 'market-row'} onClick={() => setSelectedMarket(market.name)}><div className="market-row-name"><strong>{market.name}</strong><span>{market.symbol} · Synthetic Index</span></div><div className="market-number"><strong>{market.price === null ? '—' : market.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</strong><span>{market.price === null ? 'No tick yet' : 'Live tick'}</span></div></button>)}
             </div>
             <div className="chart-workspace">
-              <div className="chart-header"><div><span className="orange-accent">LIVE VIEW</span><h3>{selectedMarket}</h3></div><button type="button" className={running ? 'run-control running' : 'run-control'} onClick={() => setRunning((v) => !v)}><span>{running ? '■' : '▶'}</span>{running ? 'RUNNING' : 'RUN'}</button></div>
-              <div className="chart-placeholder"><div className="chart-grid" aria-hidden="true"/><div className="chart-glow-line" aria-hidden="true"/><div className="candles" aria-hidden="true"><span className="candle up"/><span className="candle down"/><span className="candle up"/><span className="candle up"/><span className="candle down"/><span className="candle up"/><span className="candle down"/><span className="candle up"/><span className="candle up"/><span className="candle down"/></div><div className="chart-message">{selectedMarket} trading workspace</div></div>
+              <div className="chart-header"><div><span className="orange-accent">DERIV MARKET FEED</span><h3>{selectedMarket}</h3></div><span className="market-feed-label">{marketFeedStatus}</span></div>
+              <div className="chart-placeholder"><div className="chart-grid" aria-hidden="true"/><div className="chart-message">{markets.find((market) => market.name === selectedMarket)?.price === null ? 'Waiting for a real Deriv tick…' : `${markets.find((market) => market.name === selectedMarket)?.symbol} · ${markets.find((market) => market.name === selectedMarket)?.price?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`}</div><p className="chart-feed-note">This panel displays live quote status only. Historical candles are not fabricated.</p></div>
             </div>
           </div>
         </section>
