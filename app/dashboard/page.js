@@ -46,9 +46,10 @@ function ArrowIcon() {
 }
 
 export default function DashboardPage() {
-  const { activeAccount, balance, status, getProfitHistory, getPortfolio } = useDeriv();
-  const [markets, setMarkets] = useState(MARKETS.map((m) => ({ ...m, price: m.base, change: Math.random() * 2 - 1 })));
-  const [selectedMarket, setSelectedMarket] = useState('Vol 75');
+  const { activeAccount, balance, status, getProfitHistory, getPortfolio, subscribeTicks, unsubscribeTicks, getActiveSymbols } = useDeriv();
+  const [markets, setMarkets] = useState(MARKETS);
+  const [selectedMarket, setSelectedMarket] = useState('Volatility 75');
+  const [marketFeedStatus, setMarketFeedStatus] = useState('Waiting for Deriv connection');
   const [running, setRunning] = useState(false);
   const [riskOpen, setRiskOpen] = useState(false);
   const [adviceIndex, setAdviceIndex] = useState(0);
@@ -70,14 +71,41 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setMarkets((current) => current.map((market) => {
-        const movement = (Math.random() - 0.5) * market.base * 0.0004;
-        return { ...market, price: market.price + movement, change: movement >= 0 ? Math.random() * 1.5 : -Math.random() * 1.5 };
-      }));
-    }, 1500);
-    return () => clearInterval(interval);
-  }, []);
+    if (status !== 'connected') {
+      setMarketFeedStatus('Waiting for Deriv connection');
+      return undefined;
+    }
+
+    let cancelled = false;
+    const market = MARKETS.find((item) => item.name === selectedMarket) || MARKETS[3];
+    setMarketFeedStatus(`Connecting to ${market.symbol}`);
+
+    (async () => {
+      try {
+        const activeSymbols = await getActiveSymbols();
+        if (cancelled) return;
+        if (!activeSymbols.some((item) => item.symbol === market.symbol)) {
+          setMarketFeedStatus(`${market.symbol} is not currently available from Deriv`);
+          return;
+        }
+        await subscribeTicks(market.symbol, (tick) => {
+          if (cancelled || !Number.isFinite(Number(tick?.quote))) return;
+          setMarkets((current) => current.map((item) => item.symbol === market.symbol
+            ? { ...item, price: Number(tick.quote), epoch: tick.epoch }
+            : item));
+          setMarketFeedStatus(`Live feed · ${market.symbol}`);
+        });
+        if (!cancelled) setMarketFeedStatus(`Live feed · ${market.symbol}`);
+      } catch (error) {
+        if (!cancelled) setMarketFeedStatus(error?.message || 'Deriv market feed unavailable');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      unsubscribeTicks();
+    };
+  }, [status, selectedMarket, getActiveSymbols, subscribeTicks, unsubscribeTicks]);
 
   useEffect(() => {
     const interval = setInterval(() => setAdviceIndex((i) => (i + 1) % TRADING_ADVICE.length), 9000);
