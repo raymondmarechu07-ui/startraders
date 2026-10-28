@@ -3,13 +3,12 @@ const nextConfig = {
   reactStrictMode: true,
 
   async rewrites() {
-    const engine = 'https://trading-bot-template.onrender.com';
     return {
       beforeFiles: [
-        // Keep /bot-builder on StarTraders' own branded Next.js page.
-        // Mount the full DBot engine under a dedicated path while source-level integration proceeds.
-        { source: '/bot-builder/engine', destination: `${engine}/` },
-        { source: '/bot-builder/engine/:path*', destination: `${engine}/:path*` },
+        // Serve the full DBot build from StarTraders' own public assets.
+        // No external-host rewrite or iframe: HTML, JS, CSS, and chunks stay same-origin.
+        { source: '/bot-builder/engine', destination: '/dbot-engine/index.html' },
+        { source: '/bot-builder/engine/:path*', destination: '/dbot-engine/:path*' },
       ],
     };
   },
