@@ -2,6 +2,13 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  async redirects() {
+    return [
+      // Open the full, production DBot engine by default instead of the limited Blockly demo.
+      { source: '/bot-builder', destination: '/bot-builder/engine', permanent: false },
+    ];
+  },
+
   async rewrites() {
     return {
       beforeFiles: [
