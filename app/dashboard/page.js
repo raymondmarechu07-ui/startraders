@@ -160,8 +160,8 @@ export default function DashboardPage() {
             <div className="market-ticker-item" key={`${market.name}-${index}`}>
               <span className="ticker-live-dot" />
               <span className="ticker-name">{market.name}</span>
-              <strong className="ticker-price">{market.price === null ? '—' : market.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</strong>
-              <span className="ticker-change">{market.price === null ? 'Awaiting tick' : 'Deriv tick'}</span>
+              <strong className="ticker-price">{typeof market.price !== 'number' ? '—' : market.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</strong>
+              <span className="ticker-change">{typeof market.price !== 'number' ? 'Awaiting tick' : 'Deriv tick'}</span>
             </div>
           ))}
         </div>
@@ -232,11 +232,11 @@ export default function DashboardPage() {
           </div>
           <div className="market-layout">
             <div className="market-list">
-              {markets.map((market) => <button type="button" key={market.name} className={selectedMarket === market.name ? 'market-row selected' : 'market-row'} onClick={() => setSelectedMarket(market.name)}><div className="market-row-name"><strong>{market.name}</strong><span>{market.symbol} · Synthetic Index</span></div><div className="market-number"><strong>{market.price === null ? '—' : market.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</strong><span>{market.price === null ? 'No tick yet' : 'Live tick'}</span></div></button>)}
+              {markets.map((market) => <button type="button" key={market.name} className={selectedMarket === market.name ? 'market-row selected' : 'market-row'} onClick={() => setSelectedMarket(market.name)}><div className="market-row-name"><strong>{market.name}</strong><span>{market.symbol} · Synthetic Index</span></div><div className="market-number"><strong>{typeof market.price !== 'number' ? '—' : market.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</strong><span>{typeof market.price !== 'number' ? 'No tick yet' : 'Live tick'}</span></div></button>)}
             </div>
             <div className="chart-workspace">
               <div className="chart-header"><div><span className="orange-accent">DERIV MARKET FEED</span><h3>{selectedMarket}</h3></div><span className="market-feed-label">{marketFeedStatus}</span></div>
-              <div className="chart-placeholder"><div className="chart-grid" aria-hidden="true"/><div className="chart-message">{markets.find((market) => market.name === selectedMarket)?.price === null ? 'Waiting for a real Deriv tick…' : `${markets.find((market) => market.name === selectedMarket)?.symbol} · ${markets.find((market) => market.name === selectedMarket)?.price?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`}</div><p className="chart-feed-note">This panel displays live quote status only. Historical candles are not fabricated.</p></div>
+              <div className="chart-placeholder"><div className="chart-grid" aria-hidden="true"/><div className="chart-message">{typeof markets.find((market) => market.name === selectedMarket)?.price !== 'number' ? 'Waiting for a real Deriv tick…' : `${markets.find((market) => market.name === selectedMarket)?.symbol} · ${markets.find((market) => market.name === selectedMarket)?.price?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`}</div><p className="chart-feed-note">This panel displays live quote status only. Historical candles are not fabricated.</p></div>
             </div>
           </div>
         </section>
