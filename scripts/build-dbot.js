@@ -35,8 +35,29 @@ try {
   run(git, ['fetch', '--depth', '1', 'origin', commit], tempDir);
   run(git, ['checkout', '--detach', commit], tempDir);
 
+  // Apply StarTraders branding to the actual DBot application before building it.
+  const brandPath = path.join(tempDir, 'brand.config.json');
+  const brand = JSON.parse(fs.readFileSync(brandPath, 'utf8'));
+  const hostname = process.env.STARTRADERS_HOSTNAME || 'startraders-xn1z.onrender.com';
+  brand.brand_name = 'StarTraders';
+  brand.brand_domain = hostname;
+  brand.domain_name = 'StarTraders';
+  brand.platform.name = 'StarTraders Bot Builder';
+  brand.platform.logo.alt_text = 'StarTraders';
+  brand.platform.logo.text = 'StarTraders';
+  brand.platform.logo.show_text = true;
+  brand.platform.hostname.production.com = hostname;
+  brand.brand_hostname.production = `https://${hostname}/bot-builder/engine`;
+  brand.brand_hostname.staging = `https://${hostname}/bot-builder/engine`;
+  brand.colors.primary = '#17223a';
+  brand.colors.secondary = '#55dfb1';
+  brand.colors.tertiary = '#2375d8';
+  fs.writeFileSync(brandPath, JSON.stringify(brand, null, 2) + '\\n');
+
   console.log('[StarTraders] Installing DBot engine dependencies...');
   run(npm, ['ci', '--strict-peer-deps'], tempDir);
+  console.log('[StarTraders] Generating StarTraders theme variables...');
+  run(npm, ['run', 'generate:brand-css'], tempDir);
 
   console.log('[StarTraders] Building full DBot engine for the same-origin StarTraders route...');
   run(npm, ['run', 'build'], tempDir, {
