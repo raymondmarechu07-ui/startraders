@@ -6,9 +6,10 @@ const nextConfig = {
     const engine = 'https://trading-bot-template.onrender.com';
     return {
       beforeFiles: [
-        // Serve the official DBot app as the actual Bot Builder page, not as a separate link.
-        { source: '/bot-builder', destination: `${engine}/` },
-        { source: '/bot-builder/:path*', destination: `${engine}/:path*` },
+        // Keep /bot-builder on StarTraders' own branded Next.js page.
+        // Mount the full DBot engine under a dedicated path while source-level integration proceeds.
+        { source: '/bot-builder/engine', destination: `${engine}/` },
+        { source: '/bot-builder/engine/:path*', destination: `${engine}/:path*` },
       ],
     };
   },
