@@ -7,11 +7,11 @@ import AiFab from '@/components/AiFab';
 import { useDeriv } from '@/context/DerivProvider';
 
 const MARKETS = [
-  { name: 'Crash 500', base: 9021.73 },
-  { name: 'Vol 25', base: 1553.29 },
-  { name: 'Vol 75', base: 6914.82 },
-  { name: 'Vol 100', base: 8342.61 },
-  { name: 'Boom 500', base: 12480.41 },
+  { name: 'Volatility 10', symbol: 'R_10', price: null },
+  { name: 'Volatility 25', symbol: 'R_25', price: null },
+  { name: 'Volatility 50', symbol: 'R_50', price: null },
+  { name: 'Volatility 75', symbol: 'R_75', price: null },
+  { name: 'Volatility 100', symbol: 'R_100', price: null },
 ];
 
 const QUICK_ACTIONS = [
@@ -46,10 +46,12 @@ function ArrowIcon() {
 }
 
 export default function DashboardPage() {
-  const { activeAccount, balance, status, getProfitHistory, getPortfolio, subscribeTicks, unsubscribeTicks, getActiveSymbols } = useDeriv();
+  const { activeAccount, balance, status, getProfitHistory, getPortfolio, getCandles, subscribeTicks, unsubscribeTicks, getActiveSymbols } = useDeriv();
   const [markets, setMarkets] = useState(MARKETS);
   const [selectedMarket, setSelectedMarket] = useState('Volatility 75');
   const [marketFeedStatus, setMarketFeedStatus] = useState('Waiting for Deriv connection');
+  const [candles, setCandles] = useState([]);
+  const [candleStatus, setCandleStatus] = useState('Waiting for Deriv connection');
   const [running, setRunning] = useState(false);
   const [riskOpen, setRiskOpen] = useState(false);
   const [adviceIndex, setAdviceIndex] = useState(0);
@@ -106,6 +108,28 @@ export default function DashboardPage() {
       unsubscribeTicks();
     };
   }, [status, selectedMarket, getActiveSymbols, subscribeTicks, unsubscribeTicks]);
+
+  useEffect(() => {
+    if (status !== 'connected') {
+      setCandles([]);
+      setCandleStatus('Connect Deriv to load real candle history');
+      return undefined;
+    }
+    let cancelled = false;
+    const market = MARKETS.find((item) => item.name === selectedMarket) || MARKETS[3];
+    setCandleStatus('Loading historical candles…');
+    setCandles([]);
+    getCandles({ symbol: market.symbol, granularity: 60, count: 60 })
+      .then((history) => {
+        if (cancelled) return;
+        setCandles(history);
+        setCandleStatus(history.length ? 'Historical candles · Deriv' : 'No candle history returned by Deriv');
+      })
+      .catch((error) => {
+        if (!cancelled) setCandleStatus(error?.message || 'Unable to load candle history');
+      });
+    return () => { cancelled = true; };
+  }, [status, selectedMarket, getCandles]);
 
   useEffect(() => {
     const interval = setInterval(() => setAdviceIndex((i) => (i + 1) % TRADING_ADVICE.length), 9000);
@@ -236,7 +260,7 @@ export default function DashboardPage() {
             </div>
             <div className="chart-workspace">
               <div className="chart-header"><div><span className="orange-accent">DERIV MARKET FEED</span><h3>{selectedMarket}</h3></div><span className="market-feed-label">{marketFeedStatus}</span></div>
-              <div className="chart-placeholder"><div className="chart-grid" aria-hidden="true"/><div className="chart-message">{typeof markets.find((market) => market.name === selectedMarket)?.price !== 'number' ? 'Waiting for a real Deriv tick…' : `${markets.find((market) => market.name === selectedMarket)?.symbol} · ${markets.find((market) => market.name === selectedMarket)?.price?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`}</div><p className="chart-feed-note">This panel displays live quote status only. Historical candles are not fabricated.</p></div>
+              <div className="chart-placeholder"><div className="chart-grid" aria-hidden="true"/>{candles.length > 1 ? <svg className="real-candle-chart" viewBox="0 0 720 280" role="img" aria-label={`Real Deriv one-minute candlestick chart for ${selectedMarket}`} preserveAspectRatio="none">{(() => { const lows = candles.map((c) => Number(c.low)); const highs = candles.map((c) => Number(c.high)); const min = Math.min(...lows); const max = Math.max(...highs); const range = max - min || 1; const step = 720 / candles.length; const y = (price) => 260 - ((Number(price) - min) / range) * 240; return candles.map((c, i) => { const openY = y(c.open); const closeY = y(c.close); const highY = y(c.high); const lowY = y(c.low); const up = Number(c.close) >= Number(c.open); const x = i * step + step / 2; return <g key={c.epoch || i} className={up ? 'candle-up' : 'candle-down'}><line x1={x} x2={x} y1={highY} y2={lowY} stroke="currentColor" strokeWidth="1.2"/><rect x={x - Math.max(1.5, step * .28)} y={Math.min(openY, closeY)} width={Math.max(3, step * .56)} height={Math.max(1.5, Math.abs(closeY - openY))} fill="currentColor" rx=".5"/></g>; }); })()}</svg> : <div className="chart-message">{candleStatus}</div>}<p className="chart-feed-note">{candles.length ? `Showing ${candles.length} real one-minute candles received from Deriv · latest quote updates above` : candleStatus}</p></div>
             </div>
           </div>
         </section>
