@@ -52,7 +52,7 @@ try {
   brand.colors.primary = '#17223a';
   brand.colors.secondary = '#55dfb1';
   brand.colors.tertiary = '#2375d8';
-  fs.writeFileSync(brandPath, JSON.stringify(brand, null, 2) + '\\n');
+  fs.writeFileSync(brandPath, JSON.stringify(brand, null, 2) + '\n');
 
   console.log('[StarTraders] Installing DBot engine dependencies...');
   run(npm, ['ci', '--strict-peer-deps'], tempDir);
